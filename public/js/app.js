@@ -191,16 +191,24 @@ async function fetchState() {
         appState.data.kontakEksternal = JSON.parse(JSON.stringify(INITIAL_SENTRA_DATA.kontakEksternal));
       }
     }
-    // Ensure doc-01 is synchronized as Surat Eksternal Waiting For Approval
+    // Ensure doc-ext-01 is present as dedicated Surat Eksternal Waiting For Approval
     if (appState.data && Array.isArray(appState.data.documents)) {
-      const doc1 = appState.data.documents.find(d => d.id === 'doc-01');
-      if (doc1 && (!doc1.isSuratEksternal || doc1.template !== 'Surat Eksternal' || doc1.statusSuratKeluar === 'Draft')) {
-        const freshDoc1 = (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.documents) 
-          ? INITIAL_SENTRA_DATA.documents.find(d => d.id === 'doc-01') 
+      const extDoc = appState.data.documents.find(d => d.id === 'doc-ext-01');
+      if (!extDoc) {
+        const freshExt = (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.documents)
+          ? INITIAL_SENTRA_DATA.documents.find(d => d.id === 'doc-ext-01')
           : null;
-        if (freshDoc1) {
-          Object.assign(doc1, JSON.parse(JSON.stringify(freshDoc1)));
+        if (freshExt) {
+          appState.data.documents.unshift(JSON.parse(JSON.stringify(freshExt)));
         }
+      }
+      // Revert doc-01 back to internal Nota Dinas
+      const doc1 = appState.data.documents.find(d => d.id === 'doc-01');
+      if (doc1 && doc1.isSuratEksternal) {
+        doc1.template = 'Format Standar Nota Dinas Pupuk Indonesia';
+        doc1.jenisSurat = 'Nota Dinas';
+        doc1.isSuratEksternal = false;
+        doc1.perluStempel = false;
       }
     }
     saveLocalCopy(appState.data);
@@ -251,16 +259,24 @@ function loadLocalState() {
         appState.data.kontakEksternal = JSON.parse(JSON.stringify(INITIAL_SENTRA_DATA.kontakEksternal));
       }
     }
-    // Ensure doc-01 is synchronized as Surat Eksternal Waiting For Approval
+    // Ensure doc-ext-01 is present as dedicated Surat Eksternal Waiting For Approval
     if (appState.data && Array.isArray(appState.data.documents)) {
-      const doc1 = appState.data.documents.find(d => d.id === 'doc-01');
-      if (doc1 && (!doc1.isSuratEksternal || doc1.template !== 'Surat Eksternal' || doc1.statusSuratKeluar === 'Draft')) {
-        const freshDoc1 = (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.documents) 
-          ? INITIAL_SENTRA_DATA.documents.find(d => d.id === 'doc-01') 
+      const extDoc = appState.data.documents.find(d => d.id === 'doc-ext-01');
+      if (!extDoc) {
+        const freshExt = (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.documents)
+          ? INITIAL_SENTRA_DATA.documents.find(d => d.id === 'doc-ext-01')
           : null;
-        if (freshDoc1) {
-          Object.assign(doc1, JSON.parse(JSON.stringify(freshDoc1)));
+        if (freshExt) {
+          appState.data.documents.unshift(JSON.parse(JSON.stringify(freshExt)));
         }
+      }
+      // Revert doc-01 back to internal Nota Dinas
+      const doc1 = appState.data.documents.find(d => d.id === 'doc-01');
+      if (doc1 && doc1.isSuratEksternal) {
+        doc1.template = 'Format Standar Nota Dinas Pupuk Indonesia';
+        doc1.jenisSurat = 'Nota Dinas';
+        doc1.isSuratEksternal = false;
+        doc1.perluStempel = false;
       }
     }
     saveLocalCopy(appState.data);
@@ -4002,7 +4018,7 @@ function isDocSuratEksternal(doc) {
     doc.tujuan === 'Eksternal' ||
     (doc.tujuan && typeof doc.tujuan === 'string' && doc.tujuan.toLowerCase().includes('eksternal')) ||
     doc.perluStempel === true ||
-    doc.id === 'doc-01'
+    doc.id === 'doc-ext-01'
   );
 }
 
@@ -4013,7 +4029,7 @@ function openApproveSuratModal(docId) {
 
   // If Approver approves an External Letter, trigger the OTP Verification Flow (media_1792493294546_27295dcd.png & media_1792493342326_c98c317c.png)
   if (isApprover && isDocSuratEksternal(doc)) {
-    openApproveSuratEksternalModal(doc ? doc.id : (docId || 'doc-01'));
+    openApproveSuratEksternalModal(doc ? doc.id : (docId || 'doc-ext-01'));
     return;
   }
 

@@ -149,29 +149,29 @@
   ],
   "documents": [
     {
-      "id": "doc-01",
-      "hasAlert": false,
-      "nomorSurat": "07344/A/TI/P14/ET/2026",
-      "judul": "Rebuild Digital Office",
+      "id": "doc-ext-01",
+      "hasAlert": true,
+      "nomorSurat": "00421/B/UM/P14/EXT/2026",
+      "judul": "Surat Kemitraan Kerjasama Distribusi Logistik Pupuk (Eksternal)",
       "status": "Menunggu Approval",
       "statusSuratKeluar": "Waiting For Approval",
       "role": "Approval",
       "roleSuratKeluar": "Approval",
-      "diperbaharuiTanggal": "Selasa, 27 April 2026, 11:41",
-      "diperbaharuiOleh": "Agung Mahendra",
+      "diperbaharuiTanggal": "Selasa, 27 April 2026, 14:20",
+      "diperbaharuiOleh": "Siti Rahma",
       "pengirim": "Muhammad Ridha Fadli",
       "unitKerja": "Komp. Digitalisasi & Data Science",
       "prioritas": "Biasa",
-      "sifat": "Terbatas",
+      "sifat": "Biasa",
       "kecepatanTanggapan": "Biasa",
-      "jenisSurat": "Surat Antar Unit Kerja",
+      "jenisSurat": "Surat Keluar",
       "template": "Surat Eksternal",
       "klasifikasi": "BL.01.04 (pilar Hukum dan Tata Kelola)",
       "isSuratEksternal": true,
       "perluStempel": true,
       "perluTindakLanjut": true,
       "currentAssigneeRole": "approver",
-      "currentAssigneeName": "Agung Mahendra (Approver)",
+      "currentAssigneeName": "Yetty Endarwati (Approver)",
       "drafter": {
         "id": "drafter",
         "name": "Muhammad Ridha Fadli",
@@ -179,24 +179,100 @@
       },
       "reviewer": {
         "id": "reviewer",
-        "name": "Agus Purnomo",
-        "title": "VP Tata Kelola"
+        "name": "Siti Rahma",
+        "title": "Senior Officer Rantai Pasok"
       },
       "approver": {
         "id": "approver",
-        "name": "Agung Mahendra",
-        "title": "AVP Pupuk Industri"
+        "name": "Yetty Endarwati",
+        "title": "SVP Digitalisasi & Data Science"
       },
       "penerima": {
-        "id": "1250016",
-        "name": "Robby Setiabudi",
-        "unit": "Direktorat Supply Chain"
+        "id": "ext-01",
+        "name": "Budi Wicaksono",
+        "unit": "PT Logistik Distribusi Nusantara",
+        "instansi": "PT Logistik Distribusi Nusantara",
+        "email": "budi.wicaksono@logistiknusantara.co.id",
+        "noTelepon": "081298817263"
+      },
+      "cc": [
+        "Direktorat Pemasaran & Distribusi",
+        "Biro Hukum & Tata Kelola Korporat"
+      ],
+      "waktu": "27/04/2026 14:20:15",
+      "ringkasan": "Permohonan kerjasama strategis dan penjajakan kemitraan distribusi pupuk non-subsidi untuk wilayah Jawa Barat dan sekitarnya.",
+      "lampiran": [
+        {
+          "name": "Proposal_Kemitraan_Logistik_Eksternal.pdf",
+          "size": "2.4 MB"
+        }
+      ],
+      "timeline": [
+        {
+          "waktu": "27/04/2026 09:15:00 WIB",
+          "aktor": "Muhammad Ridha Fadli",
+          "peran": "Drafter",
+          "aksi": "Pengajuan Surat Eksternal Baru",
+          "catatan": "Naskah surat eksternal diajukan kepada Reviewer (Siti Rahma)."
+        },
+        {
+          "waktu": "27/04/2026 14:20:15 WIB",
+          "aktor": "Siti Rahma",
+          "peran": "Reviewer",
+          "aksi": "Approve Telaah Surat Eksternal",
+          "catatan": "Telaah naskah dinas eksternal disetujui, diteruskan ke Pejabat Approver (Yetty Endarwati) untuk verifikasi persetujuan OTP."
+        }
+      ]
+    },
+    {
+      "id": "doc-01",
+      "hasAlert": false,
+      "nomorSurat": "07344/A/TI/P14/ET/2026",
+      "judul": "Rebuild Digital Office",
+      "status": "Draft",
+      "statusSuratKeluar": "Draft",
+      "role": "Drafter",
+      "roleSuratKeluar": "Drafter",
+      "diperbaharuiTanggal": "19/09/2024 11:44:41",
+      "diperbaharuiOleh": "Muhammad Ridha Fadli",
+      "pengirim": "Muhammad Ridha Fadli",
+      "unitKerja": "Komp. Digitalisasi & Data Science",
+      "prioritas": "Biasa",
+      "sifat": "Terbatas",
+      "kecepatanTanggapan": "Biasa",
+      "jenisSurat": "Nota Dinas",
+      "template": "Format Standar Nota Dinas Pupuk Indonesia",
+      "klasifikasi": "BL.01.04 (pilar Hukum dan Tata Kelola)",
+      "isSuratEksternal": false,
+      "perluStempel": false,
+      "perluTindakLanjut": false,
+      "currentAssigneeRole": "drafter",
+      "currentAssigneeName": "Muhammad Ridha Fadli",
+      "drafter": {
+        "id": "drafter",
+        "name": "Muhammad Ridha Fadli",
+        "unit": "Komp. Digitalisasi & Data Science"
+      },
+      "reviewer": {
+        "id": "reviewer",
+        "name": "Siti Rahma",
+        "title": "Senior Officer Rantai Pasok"
+      },
+      "approver": {
+        "id": "approver",
+        "name": "Yetty Endarwati",
+        "title": "SVP Digitalisasi & Data Science"
+      },
+      "penerima": {
+        "id": "recipient",
+        "name": "Dewi Lestari",
+        "unit": "Departemen Anggaran & Perbendaharaan"
       },
       "cc": [
         "Tim Digitalisasi"
       ],
       "waktu": "19/09/2024 11:44:41",
-      "ringkasan": "Pembangunan ulang arsitektur sistem Digital Office SENTRA untuk efisiensi naskah dinas korporat.",
+      "ringkasan": "Pembangunan ulang arsitektur sistem Digital Office SENTRA untuk efisiensi naskah dinas korporat internal.",
       "lampiran": [
         {
           "name": "Kajian_Rebuild_Digital_Office.pdf",
@@ -206,10 +282,10 @@
       "timeline": [
         {
           "waktu": "19/09/2024 11:44:41",
-          "aktor": "Dary Ramadhan",
+          "aktor": "Muhammad Ridha Fadli",
           "peran": "Drafter",
           "aksi": "Simpan Draft",
-          "catatan": "Naskah disimpan sebagai draft."
+          "catatan": "Naskah dinas internal disimpan sebagai draft."
         }
       ]
     },
