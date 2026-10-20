@@ -1,0 +1,13 @@
+{
+  "name": "sentra-digital-office-prototype",
+  "version": "1.0.0",
+  "description": "SENTRA - Digital Office (DoF) Pupuk Indonesia Live Prototype",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["sentra", "pupuk-indonesia", "prototype", "digital-office"],
+  "author": "TRD Creative Studio",
+  "license": "ISC"
+}
