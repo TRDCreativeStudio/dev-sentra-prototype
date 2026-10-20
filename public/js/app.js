@@ -92,14 +92,26 @@ let appState = {
   isDataKosongMode: false,
   initialDocumentsBackup: null,
   berandaDense: true,
-  berandaRowsPerPage: 10,
+  berandaRowsPerPage: 5,
   berandaCurrentPage: 1,
   berandaSearchQuery: '',
   berandaFilterStatus: 'all',
   berandaFilterRole: 'all',
   berandaPeriod: 'today',
   isBerandaFilterOpen: false,
-  isBerandaPeriodOpen: false
+  isBerandaPeriodOpen: false,
+  kontakEksternalSearchQuery: '',
+  kontakEksternalDense: false,
+  kontakEksternalRowsPerPage: 10,
+  kontakEksternalCurrentPage: 1,
+  kontakEksternalFilterInstansi: 'all',
+  editingKontakEksternalId: null,
+  deletingKontakEksternalId: null,
+  createSuratJenis: 'Surat Antar Unit Kerja',
+  createSuratExtInstansi: '',
+  createSuratExtNama: '',
+  createSuratExtEmail: '',
+  createSuratExtTelepon: ''
 };
 
 // Sidebar Toggle Function
@@ -174,6 +186,23 @@ async function fetchState() {
         appState.data.klasifikasiSuratList = JSON.parse(JSON.stringify(INITIAL_SENTRA_DATA.klasifikasiSuratList));
       }
     }
+    if (!appState.data.kontakEksternal || appState.data.kontakEksternal.length === 0) {
+      if (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.kontakEksternal) {
+        appState.data.kontakEksternal = JSON.parse(JSON.stringify(INITIAL_SENTRA_DATA.kontakEksternal));
+      }
+    }
+    // Ensure doc-01 is synchronized as Surat Eksternal Waiting For Approval
+    if (appState.data && Array.isArray(appState.data.documents)) {
+      const doc1 = appState.data.documents.find(d => d.id === 'doc-01');
+      if (doc1 && (!doc1.isSuratEksternal || doc1.template !== 'Surat Eksternal' || doc1.statusSuratKeluar === 'Draft')) {
+        const freshDoc1 = (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.documents) 
+          ? INITIAL_SENTRA_DATA.documents.find(d => d.id === 'doc-01') 
+          : null;
+        if (freshDoc1) {
+          Object.assign(doc1, JSON.parse(JSON.stringify(freshDoc1)));
+        }
+      }
+    }
     saveLocalCopy(appState.data);
     renderApp();
   } catch (err) {
@@ -215,6 +244,23 @@ function loadLocalState() {
     if (!appState.data.klasifikasiSuratList || appState.data.klasifikasiSuratList.length === 0) {
       if (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.klasifikasiSuratList) {
         appState.data.klasifikasiSuratList = JSON.parse(JSON.stringify(INITIAL_SENTRA_DATA.klasifikasiSuratList));
+      }
+    }
+    if (!appState.data.kontakEksternal || appState.data.kontakEksternal.length === 0) {
+      if (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.kontakEksternal) {
+        appState.data.kontakEksternal = JSON.parse(JSON.stringify(INITIAL_SENTRA_DATA.kontakEksternal));
+      }
+    }
+    // Ensure doc-01 is synchronized as Surat Eksternal Waiting For Approval
+    if (appState.data && Array.isArray(appState.data.documents)) {
+      const doc1 = appState.data.documents.find(d => d.id === 'doc-01');
+      if (doc1 && (!doc1.isSuratEksternal || doc1.template !== 'Surat Eksternal' || doc1.statusSuratKeluar === 'Draft')) {
+        const freshDoc1 = (typeof INITIAL_SENTRA_DATA !== 'undefined' && INITIAL_SENTRA_DATA.documents) 
+          ? INITIAL_SENTRA_DATA.documents.find(d => d.id === 'doc-01') 
+          : null;
+        if (freshDoc1) {
+          Object.assign(doc1, JSON.parse(JSON.stringify(freshDoc1)));
+        }
       }
     }
     saveLocalCopy(appState.data);
@@ -481,15 +527,17 @@ function isDocRelevantForSuratKeluar(doc, persona) {
   // 3. Approver role: SELAMA ITU UNTUK REVIEWER/APPROVER, TETAP DI SURAT KELUAR
   if (roleId === 'approver') {
     const isDesignatedApprover = (
-      (doc.approver && (doc.approver.id === 'approver' || doc.approver.name?.toLowerCase().includes('yetty') || doc.approver.name?.toLowerCase().includes('endarwati'))) ||
-      (doc.approverName && doc.approverName.toLowerCase().includes('yetty'))
+      (doc.approver && (doc.approver.id === 'approver' || doc.approver.name?.toLowerCase().includes('yetty') || doc.approver.name?.toLowerCase().includes('endarwati') || doc.approver.name?.toLowerCase().includes('agung') || doc.approver.name?.toLowerCase().includes('mahendra'))) ||
+      (doc.approverName && (doc.approverName.toLowerCase().includes('yetty') || doc.approverName.toLowerCase().includes('agung')))
     );
     if (!isDesignatedApprover) return false;
 
-    // Approver memantau naskah yang sudah diteruskan untuk persetujuan atau telah disetujui/ditolak
+    // Approver memantau naskah yang sudah diteruskan untuk persetujuan atau telah disetujui/ditolak/menunggu stempel
     const isReadyForOrPastApprover = (
       statusSK.includes('approval') ||
       statusGen.includes('approval') ||
+      statusSK.includes('stamp') ||
+      statusGen.includes('stempel') ||
       statusSK.includes('completed') ||
       statusGen.includes('selesai') ||
       statusGen.includes('disetujui') ||
@@ -505,7 +553,20 @@ function isDocRelevantForSuratKeluar(doc, persona) {
     return false;
   }
 
-  // 5. Default untuk Admin DOF / Admin Stempel
+  // 5. Admin Stempel: memantau naskah yang memerlukan stempel digital
+  if (roleId === 'admin_stempel') {
+    return (
+      doc.perluStempel === true ||
+      doc.template === 'Surat Eksternal' ||
+      doc.isSuratEksternal ||
+      statusSK.includes('stamp') ||
+      statusGen.includes('stempel') ||
+      statusSK === 'completed' ||
+      statusGen === 'disetujui / selesai'
+    );
+  }
+
+  // 6. Default untuk Admin DOF
   return true;
 }
 
@@ -768,12 +829,14 @@ function isDocActionableForRole(doc, roleId, persona) {
     const isApp = (doc.approver && (
       doc.approver.id === 'approver' || 
       doc.approver.name?.toLowerCase().includes('yetty') || 
-      doc.approver.name?.toLowerCase().includes('endarwati')
-    )) || (doc.role === 'Approval') || (doc.approverName && doc.approverName.toLowerCase().includes('yetty')) || (doc.currentAssigneeRole === 'approver');
+      doc.approver.name?.toLowerCase().includes('endarwati') ||
+      doc.approver.name?.toLowerCase().includes('agung') ||
+      doc.approver.name?.toLowerCase().includes('mahendra')
+    )) || (doc.role === 'Approval') || (doc.approverName && (doc.approverName.toLowerCase().includes('yetty') || doc.approverName.toLowerCase().includes('agung'))) || (doc.currentAssigneeRole === 'approver');
     return isApp && (statusSK.includes('approval') || statusGen.includes('approval'));
   }
   if (effectiveRole === 'admin_stempel') {
-    return (doc.perluStempel || statusGen.includes('stempel') || statusGen === 'perlu verifikasi stempel') && (statusGen.includes('stempel') || statusSK.includes('stempel'));
+    return (doc.perluStempel || statusGen.includes('stempel') || statusGen === 'perlu verifikasi stempel') && (statusGen.includes('stempel') || statusSK.includes('stempel') || statusSK.includes('stamp'));
   }
   if (effectiveRole === 'admin_penerima' || effectiveRole === 'recipient') {
     const isRec = (doc.penerima && (doc.penerima.id === 'recipient' || doc.penerima.name?.toLowerCase().includes('dewi') || doc.penerima.name?.toLowerCase().includes('lestari'))) ||
@@ -917,6 +980,28 @@ function renderSidebar() {
             <a href="#" onclick="navigate('rbac'); return false;">
               ${getIcon('shield')}
               <span>RBAC</span>
+            </a>
+          </li>
+          <li class="nav-item ${appState.currentPage === 'kontak-eksternal' ? 'active' : ''}">
+            <a href="#" onclick="navigate('kontak-eksternal'); return false;">
+              ${getIcon('kontak')}
+              <span>Kontak Eksternal</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    `;
+  } else {
+    // MANAGEMENT (Visible for EVERY role)
+    html += `
+      <!-- MANAGEMENT (ALL ROLES) -->
+      <div>
+        <div class="nav-group-title">MANAGEMENT</div>
+        <ul class="nav-list">
+          <li class="nav-item ${appState.currentPage === 'kontak-eksternal' ? 'active' : ''}">
+            <a href="#" onclick="navigate('kontak-eksternal'); return false;">
+              ${getIcon('kontak')}
+              <span>Kontak Eksternal</span>
             </a>
           </li>
         </ul>
@@ -1079,9 +1164,11 @@ function renderApp() {
     case 'manajemen-group':
       contentArea.innerHTML = renderManajemenGroupView();
       break;
+    case 'kontak-eksternal':
+      contentArea.innerHTML = renderKontakEksternalView();
+      break;
     case 'permintaan-akses-surat':
     case 'daftar-referensi':
-    case 'kontak-eksternal':
       contentArea.innerHTML = renderGenericAdminView(appState.currentPage);
       break;
     default:
@@ -1174,6 +1261,9 @@ function renderActivePageContent() {
       break;
     case 'manajemen-group':
       contentArea.innerHTML = renderManajemenGroupView();
+      break;
+    case 'kontak-eksternal':
+      contentArea.innerHTML = renderKontakEksternalView();
       break;
     default:
       renderApp();
@@ -1407,6 +1497,29 @@ function getFilterConfigForPage(page) {
           label: 'Tipe Grup',
           placeholder: 'Pilih Tipe Grup',
           options: ['Semua Tipe', 'Holding', 'Anak Perusahaan', 'Unit Kerja']
+        }
+      ]
+    };
+  }
+
+  if (page === 'kontak-eksternal') {
+    return {
+      title: 'Filter',
+      fields: [
+        {
+          key: 'kontakEksternalFilterInstansi',
+          label: 'Instansi',
+          placeholder: 'Pilih Instansi',
+          options: [
+            'Semua Instansi',
+            'PT ABC',
+            'Kementerian BUMN',
+            'PT Pertamina (Persero)',
+            'PT Pupuk Kalimantan Timur',
+            'PT Pupuk Indonesia Utilitas',
+            'PT Rekayasa Industri',
+            'Kementerian Pertanian Republik Indonesia'
+          ]
         }
       ]
     };
@@ -1787,7 +1900,7 @@ function getBerandaDocuments() {
 function getBerandaPaginatedDocuments() {
   const allDocs = getBerandaDocuments();
   const total = allDocs.length;
-  const rowsPerPage = appState.berandaRowsPerPage || 10;
+  const rowsPerPage = appState.berandaRowsPerPage || 5;
   const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
   let currentPage = appState.berandaCurrentPage || 1;
   if (currentPage > totalPages) currentPage = totalPages;
@@ -1810,6 +1923,7 @@ function getBerandaPaginatedDocuments() {
 // Generate rows HTML
 function getBerandaTableRowsHtml() {
   const { docs, total } = getBerandaPaginatedDocuments();
+  const roleId = appState.currentRole;
   const isDense = !!appState.berandaDense;
   const pad = isDense ? '8px 16px' : '14px 16px';
   const fontSize = isDense ? '13px' : '13.5px';
@@ -1871,7 +1985,14 @@ function getBerandaTableRowsHtml() {
 
         <!-- Judul Surat -->
         <td style="padding: ${pad}; font-size: ${fontSize}; color: #101828; font-weight: 500; vertical-align: middle;">
-          ${escapeHtml(doc.judul || 'Tanpa Judul')}
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>${escapeHtml(doc.judul || 'Tanpa Judul')}</span>
+            ${(doc.isSuratEksternal || doc.template === 'Surat Eksternal' || doc.template === 'Surat Eksternal Digital') ? `
+              <span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: #EEF4FF; color: #3538CD; border: 1px solid #C7D7FE; white-space: nowrap;">
+                Surat Eksternal
+              </span>
+            ` : ''}
+          </div>
         </td>
 
         <!-- Status -->
@@ -1923,7 +2044,7 @@ function getBerandaStatusBadgeHtml(status) {
 function getBerandaTableFooterInnerHtml() {
   const { total, totalPages, currentPage, startIndex, endIndex } = getBerandaPaginatedDocuments();
   const isDense = !!appState.berandaDense;
-  const rowsPerPage = appState.berandaRowsPerPage || 10;
+  const rowsPerPage = appState.berandaRowsPerPage || 5;
 
   return `
     <div style="padding: 12px 24px; border-top: 1px solid #EAECF0; display: flex; align-items: center; justify-content: space-between; background: #FFFFFF; font-size: 13px; color: #344054; flex-wrap: wrap; gap: 12px;">
@@ -2002,7 +2123,7 @@ function onBerandaRowsPerPageChange(val) {
 
 function changeBerandaPage(delta) {
   const allDocs = getBerandaDocuments();
-  const totalPages = Math.max(1, Math.ceil(allDocs.length / (appState.berandaRowsPerPage || 10)));
+  const totalPages = Math.max(1, Math.ceil(allDocs.length / (appState.berandaRowsPerPage || 5)));
   const targetPage = (appState.berandaCurrentPage || 1) + delta;
   if (targetPage >= 1 && targetPage <= totalPages) {
     appState.berandaCurrentPage = targetPage;
@@ -2713,7 +2834,14 @@ function renderSuratKeluarView() {
                     </div>
                   </td>
                   <td style="padding: 12px 14px; font-weight: 600; color: #1E293B;">
-                    ${escapeHtml(doc.judul || '-')}
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span>${escapeHtml(doc.judul || '-')}</span>
+                      ${(doc.isSuratEksternal || doc.template === 'Surat Eksternal' || doc.template === 'Surat Eksternal Digital') ? `
+                        <span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: #EEF4FF; color: #3538CD; border: 1px solid #C7D7FE; white-space: nowrap;">
+                          Surat Eksternal
+                        </span>
+                      ` : ''}
+                    </div>
                   </td>
                   <td style="padding: 12px 14px; color: #334155;">
                     ${escapeHtml(doc.approverName || (doc.approver && doc.approver.name) || '-')}
@@ -2873,6 +3001,10 @@ function renderBuatSuratBaruView() {
     (doc?.statusSuratKeluar && (doc.statusSuratKeluar.includes('Approval') || doc.statusSuratKeluar === 'Waiting For Approval')) ||
     doc?.status === 'Menunggu Approval' || (doc?.status && doc.status.includes('Approval'))
   );
+  const isStampActionable = !isCreatingNew && (appState.currentRole === 'admin_stempel' || appState.currentRole === 'users' || appState.currentRole === 'all') && (
+    (doc?.statusSuratKeluar && (doc.statusSuratKeluar.includes('Stamp') || doc.statusSuratKeluar === 'Waiting For Stamp')) ||
+    doc?.status === 'Perlu Verifikasi Stempel' || (doc?.status && doc.status.includes('Stempel'))
+  );
 
   // Top Bar Title & Status Badge
   const pageTitle = isCreatingNew ? 'Buat Surat' : 'Detail Surat';
@@ -2885,6 +3017,8 @@ function renderBuatSuratBaruView() {
       statusBadgeHtml = `<span class="badge-sk-review" style="font-size: 12px; padding: 3px 12px;">${escapeHtml(status)}</span>`;
     } else if (status.includes('Approval') || status === 'Waiting For Approval') {
       statusBadgeHtml = `<span class="badge-sk-approval" style="font-size: 12px; padding: 3px 12px;">${escapeHtml(status)}</span>`;
+    } else if (status.includes('Stamp') || status.includes('Stempel')) {
+      statusBadgeHtml = `<span class="badge-sk-stempel" style="font-size: 12px; padding: 3px 12px; background: #FFFAEB; color: #B54708; border: 1px solid #FEDF89; border-radius: 12px; font-weight: 600;">Waiting For Stamp</span>`;
     } else if (status.includes('Completed') || status === 'Disetujui / Selesai' || status === 'Selesai') {
       statusBadgeHtml = `<span class="badge-sk-completed" style="font-size: 12px; padding: 3px 12px;">Completed</span>`;
     } else if (status.includes('Declined') || status === 'Ditolak') {
@@ -2896,7 +3030,7 @@ function renderBuatSuratBaruView() {
 
   // Form values
   const judulVal = isCreatingNew ? '' : (doc?.judul || '');
-  const jenisVal = isCreatingNew ? 'Surat Antar Unit Kerja' : (doc?.jenisSurat || 'Surat Antar Unit Kerja');
+  const jenisVal = isCreatingNew ? (appState.createSuratJenis || 'Surat Antar Unit Kerja') : (doc?.jenisSurat || 'Surat Antar Unit Kerja');
   const templatVal = isCreatingNew ? 'Surat Internal' : (doc?.template || 'Surat Internal');
   const klasifikasiVal = isCreatingNew ? 'BL.01.04 (pilar Hukum dan Tata Kelola)' : (doc?.klasifikasi || 'BL.01.04 (pilar Hukum dan Tata Kelola)');
   const sifatVal = isCreatingNew ? 'Biasa' : (doc?.sifat || 'Terbatas');
@@ -2939,12 +3073,12 @@ function renderBuatSuratBaruView() {
   const paperDate = isCreatingNew 
     ? `Jakarta, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` 
     : `Jakarta, 27 April 2026`;
-  const paperKepada = appState.tujuanChips.length 
-    ? appState.tujuanChips.map(c => c.name).join(', ')
-    : (tujuanDisplay || 'Dewi Lestari');
-  const paperKepadaUnit = appState.tujuanChips.length
-    ? (appState.tujuanChips[0].role || 'Departemen Anggaran & Perbendaharaan')
-    : (customTujuan ? customTujuan.unit : 'Departemen Anggaran & Perbendaharaan');
+  const paperKepada = (jenisVal === 'Surat Eksternal' && (appState.createSuratExtNama || appState.createSuratExtInstansi))
+    ? (appState.createSuratExtNama || appState.createSuratExtInstansi)
+    : (appState.tujuanChips.length ? appState.tujuanChips.map(c => c.name).join(', ') : (tujuanDisplay || 'Dewi Lestari'));
+  const paperKepadaUnit = (jenisVal === 'Surat Eksternal' && (appState.createSuratExtInstansi || appState.createSuratExtNama))
+    ? (appState.createSuratExtInstansi || 'Mitra Eksternal')
+    : (appState.tujuanChips.length ? (appState.tujuanChips[0].role || 'Departemen Anggaran & Perbendaharaan') : (customTujuan ? customTujuan.unit : 'Departemen Anggaran & Perbendaharaan'));
 
   // Sign-off block
   let paperSignOffHtml = '';
@@ -2990,6 +3124,16 @@ function renderBuatSuratBaruView() {
 
           <div style="font-weight: 700; text-decoration: underline; color: #101828;">${escapeHtml(approverDisplay)}</div>
           <div style="font-size: 11.5px; color: #64748B;">NIP. 88120491</div>
+
+          ${(doc?.isStamped || doc?.stempelStatus === 'Terverifikasi') ? `
+            <div style="display: flex; align-items: center; gap: 8px; border: 1.5px solid #00AD78; background: #ECFDF3; border-radius: 8px; padding: 8px 12px; margin-top: 12px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00AD78" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <div>
+                <div style="font-size: 10.5px; font-weight: 700; color: #027A48; letter-spacing: 0.5px;">STEMPEL DIGITAL RESMI</div>
+                <div style="font-size: 10px; color: #027A48;">Peruri CA &bull; ${escapeHtml(doc?.stempelDetail?.serialNumber || 'PERURI-STMP-2026-88192')}</div>
+              </div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -3093,17 +3237,62 @@ function renderBuatSuratBaruView() {
             <div style="display: flex; flex-direction: column; gap: 16px;">
               <div>
                 <label class="form-field-label" style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Jenis <span style="color: #F04438;">*</span></label>
-                <select id="create-surat-jenis" class="form-field-input" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13.5px; color: #1E293B; background: #fff;">
-                  <option ${jenisVal === 'Surat Antar Unit Kerja' ? 'selected' : ''}>Surat Antar Unit Kerja</option>
-                  <option ${jenisVal === 'Nota Dinas' ? 'selected' : ''}>Nota Dinas</option>
-                  <option ${jenisVal === 'Surat Dinas' ? 'selected' : ''}>Surat Dinas</option>
-                  <option ${jenisVal === 'Surat Keputusan' ? 'selected' : ''}>Surat Keputusan</option>
+                <select id="create-surat-jenis" class="form-field-input" onchange="handleCreateSuratJenisChange(this.value)" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13.5px; color: #1E293B; background: #fff;">
+                  <option value="Surat Antar Unit Kerja" ${jenisVal === 'Surat Antar Unit Kerja' ? 'selected' : ''}>Surat Antar Unit Kerja</option>
+                  <option value="Nota Dinas" ${jenisVal === 'Nota Dinas' ? 'selected' : ''}>Nota Dinas</option>
+                  <option value="Surat Dinas" ${jenisVal === 'Surat Dinas' ? 'selected' : ''}>Surat Dinas</option>
+                  <option value="Surat Keputusan" ${jenisVal === 'Surat Keputusan' ? 'selected' : ''}>Surat Keputusan</option>
+                  <option value="Surat Eksternal" ${jenisVal === 'Surat Eksternal' ? 'selected' : ''}>Surat Eksternal</option>
                 </select>
+
+                ${jenisVal === 'Surat Eksternal' ? `
+                  <!-- Detail Kontak Eksternal: Instansi, Nama, Email, No Telepon -->
+                  <div style="background: #F8FAFC; border: 1px solid #D0D5DD; border-radius: 8px; padding: 14px; margin-top: 10px; display: flex; flex-direction: column; gap: 11px;">
+                    <div style="font-size: 12.5px; font-weight: 700; color: #00875A; display: flex; align-items: center; justify-content: space-between;">
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        ${getIcon('kontak', 16, 'text-success')}
+                        <span>Detail Penerima Eksternal</span>
+                      </div>
+                      ${(appState.data && appState.data.kontakEksternal && appState.data.kontakEksternal.length > 0) ? `
+                        <select onchange="populateFromExistingKontak(this.value)" style="border: 1px solid #D0D5DD; border-radius: 6px; padding: 3px 8px; font-size: 11.5px; color: #00875A; background: #fff; cursor: pointer; outline: none; max-width: 175px;">
+                          <option value="">Pilih Kontak Tersimpan</option>
+                          ${appState.data.kontakEksternal.map(k => `<option value="${escapeHtml(k.id)}">${escapeHtml(k.nama)}</option>`).join('')}
+                        </select>
+                      ` : ''}
+                    </div>
+
+                    <div>
+                      <label style="font-size: 12px; font-weight: 600; color: #344054; margin-bottom: 4px; display: block;">Instansi <span style="color: #F04438;">*</span></label>
+                      <input type="text" id="create-surat-ext-instansi" value="${escapeHtml(appState.createSuratExtInstansi || '')}" placeholder="Contoh: PT ABC / Kementerian BUMN" oninput="appState.createSuratExtInstansi = this.value; updatePaperPreviewTujuanEksternal();" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 10px; font-size: 13px;" />
+                    </div>
+
+                    <div>
+                      <label style="font-size: 12px; font-weight: 600; color: #344054; margin-bottom: 4px; display: block;">Nama Penerima <span style="color: #F04438;">*</span></label>
+                      <input type="text" id="create-surat-ext-nama" value="${escapeHtml(appState.createSuratExtNama || '')}" placeholder="Contoh: SDM PT ABC" oninput="appState.createSuratExtNama = this.value; updatePaperPreviewTujuanEksternal();" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 10px; font-size: 13px;" />
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                      <div>
+                        <label style="font-size: 12px; font-weight: 600; color: #344054; margin-bottom: 4px; display: block;">E-mail <span style="color: #F04438;">*</span></label>
+                        <input type="email" id="create-surat-ext-email" value="${escapeHtml(appState.createSuratExtEmail || '')}" placeholder="sdm@ptabc.com" oninput="appState.createSuratExtEmail = this.value;" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 10px; font-size: 13px;" />
+                      </div>
+                      <div>
+                        <label style="font-size: 12px; font-weight: 600; color: #344054; margin-bottom: 4px; display: block;">Nomor Telepon <span style="color: #F04438;">*</span></label>
+                        <input type="text" id="create-surat-ext-telepon" value="${escapeHtml(appState.createSuratExtTelepon || '')}" placeholder="098178999178" oninput="appState.createSuratExtTelepon = this.value;" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 10px; font-size: 13px;" />
+                      </div>
+                    </div>
+
+                    <div style="font-size: 11px; color: #64748B; line-height: 1.4;">
+                      ℹ️ Kontak ini akan otomatis tersimpan ke halaman <strong>Kontak Eksternal</strong> untuk korespondensi berikutnya.
+                    </div>
+                  </div>
+                ` : ''}
               </div>
 
               <div>
                 <label class="form-field-label" style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Templat <span style="color: #F04438;">*</span></label>
                 <select id="create-surat-templat" class="form-field-input" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13.5px; color: #1E293B; background: #fff;">
+                  <option ${templatVal === 'Surat Eksternal' ? 'selected' : ''}>Surat Eksternal</option>
                   <option ${templatVal === 'Surat Internal' ? 'selected' : ''}>Surat Internal</option>
                   <option ${templatVal.includes('Nota Dinas') ? 'selected' : ''}>Format Standar Nota Dinas Pupuk Indonesia</option>
                   <option ${templatVal.includes('Direksi') ? 'selected' : ''}>Surat Keputusan Direksi</option>
@@ -3431,6 +3620,22 @@ function renderBuatSuratBaruView() {
         <button type="button" class="btn btn-sk-approve" onclick="openApproveSuratModal('${doc?.id}')">
           Approve
         </button>
+      ` : isStampActionable ? `
+        <!-- Admin Stempel Action Buttons (Verifikasi & Bubuhkan Stempel Digital) -->
+        <div>
+          <button type="button" class="btn" onclick="navigate('surat-keluar')" style="padding: 10px 20px; font-weight: 600; color: #344054; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; cursor: pointer;">
+            &larr; Kembali ke Surat Keluar
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button type="button" class="btn btn-secondary" onclick="showToast('Mengunduh draft sebelum stempel...')" style="padding: 10px 18px; font-weight: 600; border-radius: 8px; cursor: pointer;">
+            Preview Draft
+          </button>
+          <button type="button" class="btn btn-primary" onclick="openAdminStempelModal('${doc?.id}')" style="padding: 10px 24px; font-weight: 600; background: #00AD78; border-color: #00AD78; border-radius: 8px; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Verifikasi & Bubuhkan Stempel Digital
+          </button>
+        </div>
       ` : `
         <!-- Read-only / Completed / Non-actionable document footer -->
         <div>
@@ -3494,12 +3699,37 @@ async function saveDraftSurat() {
   const kecepatanEl = document.getElementById('create-surat-kecepatan');
 
   const judul = (judulEl && judulEl.value.trim()) || 'Draft Naskah Baru (Tanpa Judul)';
-  const jenis = (jenisEl && jenisEl.value) || 'Surat Antar Unit Kerja';
+  const jenis = (jenisEl && jenisEl.value) || appState.createSuratJenis || 'Surat Antar Unit Kerja';
   const templat = (templatEl && templatEl.value) || 'Surat Internal';
   const klasifikasi = (klasifikasiEl && klasifikasiEl.value) || 'BL.01.04 (pilar Hukum dan Tata Kelola)';
   const sifat = (sifatEl && sifatEl.value) || 'Biasa';
   const kecepatan = (kecepatanEl && kecepatanEl.value) || 'Biasa';
   const perluTindakLanjut = !!appState.isCreateSuratPerluTindakLanjut;
+
+  let externalRecipientObj = null;
+  if (jenis === 'Surat Eksternal') {
+    const extInstansi = (document.getElementById('create-surat-ext-instansi')?.value || appState.createSuratExtInstansi || '').trim();
+    const extNama = (document.getElementById('create-surat-ext-nama')?.value || appState.createSuratExtNama || '').trim();
+    const extEmail = (document.getElementById('create-surat-ext-email')?.value || appState.createSuratExtEmail || '').trim();
+    const extTelepon = (document.getElementById('create-surat-ext-telepon')?.value || appState.createSuratExtTelepon || '').trim();
+
+    if (extNama || extInstansi) {
+      const savedContact = await autoAddKontakEksternal({
+        nama: extNama || extInstansi,
+        instansi: extInstansi || extNama,
+        email: extEmail,
+        nomorTelepon: extTelepon
+      });
+      externalRecipientObj = {
+        id: savedContact ? savedContact.id : ('ext-' + Date.now().toString().slice(-5)),
+        name: extNama || extInstansi,
+        unit: extInstansi || 'Instansi Eksternal',
+        email: extEmail,
+        telepon: extTelepon,
+        isEksternal: true
+      };
+    }
+  }
 
   const now = new Date();
   const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
@@ -3537,7 +3767,7 @@ async function saveDraftSurat() {
       name: 'Yetty Endarwati',
       title: 'SVP Digitalisasi & Data Science'
     },
-    penerima: (appState.tujuanChips && appState.tujuanChips.length) ? {
+    penerima: externalRecipientObj || ((appState.tujuanChips && appState.tujuanChips.length) ? {
       id: appState.tujuanChips[0].id || 'recipient-custom',
       name: appState.tujuanChips.map(c => c.name).join(', '),
       unit: appState.tujuanChips[0].role || 'Tujuan Naskah Dinas',
@@ -3551,7 +3781,7 @@ async function saveDraftSurat() {
       id: 'recipient',
       name: 'Dewi Lestari',
       unit: 'Departemen Anggaran & Perbendaharaan'
-    }),
+    })),
     cc: ['Tim Digitalisasi'],
     perluTindakLanjut: perluTindakLanjut,
     tindakLanjutNote: '',
@@ -3615,12 +3845,37 @@ async function submitCreateSurat() {
   const kecepatanEl = document.getElementById('create-surat-kecepatan');
 
   const judul = (judulEl && judulEl.value.trim()) || 'Naskah Dinas Tanpa Judul';
-  const jenis = (jenisEl && jenisEl.value) || 'Surat Antar Unit Kerja';
+  const jenis = (jenisEl && jenisEl.value) || appState.createSuratJenis || 'Surat Antar Unit Kerja';
   const templat = (templatEl && templatEl.value) || 'Surat Internal';
   const klasifikasi = (klasifikasiEl && klasifikasiEl.value) || 'BL.01.04 (pilar Hukum dan Tata Kelola)';
   const sifat = (sifatEl && sifatEl.value) || 'Terbatas';
   const kecepatan = (kecepatanEl && kecepatanEl.value) || 'Biasa';
   const perluTindakLanjut = appState.isCreateSuratPerluTindakLanjut !== false;
+
+  let externalRecipientObj = null;
+  if (jenis === 'Surat Eksternal') {
+    const extInstansi = (document.getElementById('create-surat-ext-instansi')?.value || appState.createSuratExtInstansi || '').trim();
+    const extNama = (document.getElementById('create-surat-ext-nama')?.value || appState.createSuratExtNama || '').trim();
+    const extEmail = (document.getElementById('create-surat-ext-email')?.value || appState.createSuratExtEmail || '').trim();
+    const extTelepon = (document.getElementById('create-surat-ext-telepon')?.value || appState.createSuratExtTelepon || '').trim();
+
+    if (extNama || extInstansi) {
+      const savedContact = await autoAddKontakEksternal({
+        nama: extNama || extInstansi,
+        instansi: extInstansi || extNama,
+        email: extEmail,
+        nomorTelepon: extTelepon
+      });
+      externalRecipientObj = {
+        id: savedContact ? savedContact.id : ('ext-' + Date.now().toString().slice(-5)),
+        name: extNama || extInstansi,
+        unit: extInstansi || 'Instansi Eksternal',
+        email: extEmail,
+        telepon: extTelepon,
+        isEksternal: true
+      };
+    }
+  }
 
   const now = new Date();
   const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
@@ -3660,7 +3915,7 @@ async function submitCreateSurat() {
       name: 'Yetty Endarwati',
       title: 'SVP Digitalisasi & Data Science'
     },
-    penerima: (appState.tujuanChips && appState.tujuanChips.length) ? {
+    penerima: externalRecipientObj || ((appState.tujuanChips && appState.tujuanChips.length) ? {
       id: appState.tujuanChips[0].id || 'recipient-custom',
       name: appState.tujuanChips.map(c => c.name).join(', '),
       unit: appState.tujuanChips[0].role || 'Tujuan Naskah Dinas',
@@ -3674,7 +3929,7 @@ async function submitCreateSurat() {
       id: 'recipient',
       name: 'Dewi Lestari',
       unit: 'Departemen Anggaran & Perbendaharaan'
-    }),
+    })),
     cc: ['Tim Digitalisasi', 'Divisi Rantai Pasok'],
     perluTindakLanjut: perluTindakLanjut,
     tindakLanjutNote: '',
@@ -3736,13 +3991,37 @@ function saveReviewerChanges(docId) {
 
 // Reviewer & Approver Modals matching Reference Images 2, 3, 4
 
+// Helper to detect if a document is an external letter
+function isDocSuratEksternal(doc) {
+  if (!doc) return false;
+  return (
+    doc.isSuratEksternal === true ||
+    doc.template === 'Surat Eksternal' ||
+    doc.template === 'Surat Eksternal Digital' ||
+    doc.jenisSurat === 'Surat Eksternal' ||
+    doc.tujuan === 'Eksternal' ||
+    (doc.tujuan && typeof doc.tujuan === 'string' && doc.tujuan.toLowerCase().includes('eksternal')) ||
+    doc.perluStempel === true ||
+    doc.id === 'doc-01'
+  );
+}
+
 // Modal 1: Konfirmasi Approve Surat (Image 2)
 function openApproveSuratModal(docId) {
+  const doc = appState.data && appState.data.documents && (appState.data.documents.find(d => d.id === docId) || appState.data.documents[0]);
+  const isApprover = (appState.currentRole === 'approver' || appState.currentRole === 'users' || appState.currentRole === 'all');
+
+  // If Approver approves an External Letter, trigger the OTP Verification Flow (media_1792493294546_27295dcd.png & media_1792493342326_c98c317c.png)
+  if (isApprover && isDocSuratEksternal(doc)) {
+    openApproveSuratEksternalModal(doc ? doc.id : (docId || 'doc-01'));
+    return;
+  }
+
   const modalContainer = document.getElementById('modal-container');
   if (!modalContainer) return;
 
-  const isApprover = (appState.currentRole === 'approver');
-  const messageText = isApprover
+  const isRoleApprover = (appState.currentRole === 'approver');
+  const messageText = isRoleApprover
     ? 'Dengan ini saya menyatakan sudah membaca dan menyetujui isi surat. Surat akan disahkan dan diterbitkan secara resmi.'
     : 'Dengan ini saya menyatakan sudah membaca dan memahami isi surat. Surat akan diteruskan untuk proses review selanjutnya.';
 
@@ -3764,6 +4043,284 @@ function openApproveSuratModal(docId) {
       </div>
     </div>
   `;
+}
+
+// Modal 1B: Konfirmasi Approve Surat Eksternal (media_1792493294546_27295dcd.png)
+function openApproveSuratEksternalModal(docId) {
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  modalContainer.innerHTML = `
+    <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
+      <div class="modal-card" style="max-width: 480px; width: 100%; padding: 28px 30px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+        <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0 0 12px 0;">Approve Surat Eksternal</h3>
+        <p style="font-size: 14px; color: #475467; line-height: 1.55; margin: 0 0 28px 0;">
+          Apakah Anda yakin ingin menyetujui surat ini? Kode OTP akan dikirim ke email atau nomor telepon terdaftar untuk memverifikasi persetujuan Anda.
+        </p>
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+          <button type="button" class="btn" onclick="closeModal()" style="padding: 10px 20px; font-size: 14px; font-weight: 600; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
+            Cancel
+          </button>
+          <button type="button" class="btn" onclick="openVerifikasiOtpModal('${docId}')" style="padding: 10px 24px; font-size: 14px; font-weight: 600; background: #00AD78; border: none; border-radius: 8px; color: #FFFFFF; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);">
+            Kirim OTP
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Modal 1C: Verifikasi Persetujuan OTP (media_1792493342326_c98c317c.png)
+let otpCountdownTimer = null;
+
+function openVerifikasiOtpModal(docId) {
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  if (otpCountdownTimer) {
+    clearInterval(otpCountdownTimer);
+    otpCountdownTimer = null;
+  }
+
+  modalContainer.innerHTML = `
+    <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
+      <div class="modal-card" style="max-width: 480px; width: 100%; padding: 28px 30px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+        <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0 0 10px 0;">Verifikasi Persetujuan</h3>
+        <p style="font-size: 14px; color: #475467; line-height: 1.5; margin: 0 0 20px 0;">
+          Masukkan kode OTP yang telah dikirim ke email atau nomor telepon terdaftar untuk melanjutkan persetujuan surat.
+        </p>
+
+        <div style="margin-bottom: 24px;">
+          <label style="font-size: 13.5px; font-weight: 600; color: #344054; margin-bottom: 8px; display: block;">Kode OTP</label>
+          <div style="display: flex; gap: 10px; justify-content: space-between; margin-bottom: 14px;">
+            <input type="text" maxlength="1" id="otp-digit-0" class="otp-input-box" autocomplete="off" />
+            <input type="text" maxlength="1" id="otp-digit-1" class="otp-input-box" autocomplete="off" />
+            <input type="text" maxlength="1" id="otp-digit-2" class="otp-input-box" autocomplete="off" />
+            <input type="text" maxlength="1" id="otp-digit-3" class="otp-input-box" autocomplete="off" />
+            <input type="text" maxlength="1" id="otp-digit-4" class="otp-input-box" autocomplete="off" />
+            <input type="text" maxlength="1" id="otp-digit-5" class="otp-input-box" autocomplete="off" />
+          </div>
+
+          <div style="font-size: 13px; color: #475467;">
+            Belum menerima kode? <a href="javascript:void(0)" onclick="resendOtpCode('${docId}')" style="color: #00AD78; font-weight: 600; text-decoration: none;">Kirim ulang OTP</a> <span id="otp-countdown-display" style="color: #667085; font-weight: 500; margin-left: 4px;">00:59</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+          <button type="button" class="btn" onclick="closeModal()" style="padding: 10px 20px; font-size: 14px; font-weight: 600; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
+            Cancel
+          </button>
+          <button type="button" id="btn-submit-otp" class="btn" onclick="submitOtpVerification('${docId}')" style="padding: 10px 24px; font-size: 14px; font-weight: 600; background: #00AD78; border: none; border-radius: 8px; color: #FFFFFF; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); display: inline-flex; align-items: center; justify-content: center;">
+            Verifikasi & Setujui
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Start countdown timer 59s
+  let remainingSeconds = 59;
+  const countdownEl = document.getElementById('otp-countdown-display');
+  otpCountdownTimer = setInterval(() => {
+    remainingSeconds--;
+    if (countdownEl) {
+      countdownEl.textContent = `00:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+    }
+    if (remainingSeconds <= 0) {
+      clearInterval(otpCountdownTimer);
+      otpCountdownTimer = null;
+    }
+  }, 1000);
+
+  // Trigger automated simulated typing of digits 6, 1, 6, 8, 1, 9
+  setTimeout(() => {
+    simulateOtpTyping(docId);
+  }, 400);
+}
+
+function simulateOtpTyping(docId) {
+  const digits = ['6', '1', '6', '8', '1', '9'];
+  let currentIdx = 0;
+
+  function typeNextDigit() {
+    if (currentIdx < digits.length) {
+      const inputEl = document.getElementById(`otp-digit-${currentIdx}`);
+      if (inputEl) {
+        inputEl.value = digits[currentIdx];
+        inputEl.style.borderColor = '#00AD78';
+        inputEl.style.backgroundColor = '#F6FEF9';
+        inputEl.style.boxShadow = '0 0 0 3px rgba(0, 173, 120, 0.15)';
+        inputEl.focus();
+      }
+      currentIdx++;
+      setTimeout(typeNextDigit, 200);
+    } else {
+      // All digits filled! Wait 350ms, then trigger submitOtpVerification
+      setTimeout(() => {
+        submitOtpVerification(docId);
+      }, 350);
+    }
+  }
+
+  typeNextDigit();
+}
+
+function resendOtpCode(docId) {
+  showToast('Kode OTP baru telah dikirimkan ulang.');
+  openVerifikasiOtpModal(docId);
+}
+
+function submitOtpVerification(docId) {
+  const btn = document.getElementById('btn-submit-otp');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.9';
+    btn.innerHTML = `
+      <svg style="width: 16px; height: 16px; animation: spin 0.9s linear infinite; vertical-align: middle; margin-right: 8px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+        <path d="M12 2a10 10 0 0 1 10 10"/>
+      </svg>
+      Memverifikasi OTP...
+    `;
+  }
+
+  // Simulate network verification
+  setTimeout(() => {
+    executeOtpApprovalSuccess(docId);
+  }, 1200);
+}
+
+function executeOtpApprovalSuccess(docId) {
+  if (otpCountdownTimer) {
+    clearInterval(otpCountdownTimer);
+    otpCountdownTimer = null;
+  }
+
+  const doc = appState.data && appState.data.documents && (appState.data.documents.find(d => d.id === docId) || appState.data.documents[0]);
+  const now = new Date();
+  const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+  const nowStr = `${dateFormatted} ${timeFormatted}`;
+
+  if (doc) {
+    doc.status = 'Perlu Verifikasi Stempel';
+    doc.statusSuratKeluar = 'Waiting For Stamp';
+    doc.statusBadge = 'warning';
+    doc.currentAssigneeRole = 'admin_stempel';
+    doc.currentAssigneeName = 'Farah Nabila';
+    doc.roleSuratKeluar = 'Admin Stempel';
+    doc.stempelStatus = 'Menunggu Verifikasi Stempel';
+    doc.diperbaharuiTanggal = nowStr;
+    doc.diperbaharuiOleh = 'Agung Mahendra';
+
+    if (!doc.timeline) doc.timeline = [];
+    doc.timeline.push({
+      waktu: `${nowStr} WIB`,
+      aktor: 'Agung Mahendra',
+      peran: 'Approver',
+      aksi: 'Verifikasi OTP & Setujui Surat Eksternal',
+      catatan: 'Kode OTP keamanan (616819) terverifikasi sukses. Tanda tangan digital disahkan. Naskah dinas dialihkan ke Admin Stempel untuk pembubuhan stempel digital resmi.'
+    });
+
+    saveLocalCopy(appState.data);
+
+    try {
+      fetch(`/api/documents/${doc.id}/approve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'approve',
+          notes: 'Verifikasi OTP (616819) sukses disetujui oleh Approver. Menunggu stempel digital.',
+          actorName: 'Agung Mahendra'
+        })
+      }).catch(e => console.warn('API sync warn:', e));
+    } catch (e) {}
+  }
+
+  closeModal();
+  showToast('Kode OTP berhasil diverifikasi! Surat dialihkan ke Admin Stempel untuk pembubuhan stempel digital.');
+
+  // Automatically switch role to admin_stempel and load document
+  appState.currentRole = 'admin_stempel';
+  appState.selectedDocId = doc ? doc.id : docId;
+
+  const roleSelect = document.getElementById('prototype-role-select');
+  if (roleSelect) {
+    roleSelect.value = 'admin_stempel';
+  }
+
+  navigate('detail-surat-keluar');
+}
+
+// Admin Stempel Modal
+function openAdminStempelModal(docId) {
+  const doc = appState.data && appState.data.documents && (appState.data.documents.find(d => d.id === docId) || appState.data.documents[0]);
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  modalContainer.innerHTML = `
+    <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
+      <div class="modal-card" style="max-width: 500px; width: 100%; padding: 28px 30px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #ECFDF3; display: flex; align-items: center; justify-content: center; color: #00AD78;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0 0 2px 0;">Verifikasi & Stempel Digital</h3>
+            <span style="font-size: 13px; color: #64748B;">Admin Stempel: Farah Nabila</span>
+          </div>
+        </div>
+
+        <p style="font-size: 14px; color: #475467; line-height: 1.55; margin: 0 0 18px 0;">
+          Pastikan naskah surat eksternal <strong>"${escapeHtml(doc?.judul || 'Naskah Dinas')}"</strong> telah diverifikasi keabsahannya. Sistem akan membubuhkan stempel digital resmi Peruri CA dan surat akan berstatus <strong>Completed</strong> serta terkirim ke Penerima.
+        </p>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; font-size: 13px; color: #334155;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #64748B;">Provider Sertifikasi:</span>
+            <strong>Peruri Digital Security CA</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #64748B;">Sifat / Klasifikasi:</span>
+            <strong>${escapeHtml(doc?.sifat || 'Biasa')} &bull; ${escapeHtml(doc?.klasifikasi || 'Umum')}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #64748B;">Penerima:</span>
+            <strong>${escapeHtml((doc?.penerima && doc.penerima.name) || 'Penerima')}</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+          <button type="button" class="btn" onclick="closeModal()" style="padding: 10px 20px; font-size: 14px; font-weight: 600; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
+            Batal
+          </button>
+          <button type="button" id="btn-confirm-stempel" class="btn" onclick="confirmAdminStempelExecution('${doc?.id || docId}')" style="padding: 10px 24px; font-size: 14px; font-weight: 600; background: #00AD78; border: none; border-radius: 8px; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Bubuhkan Stempel Digital
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function confirmAdminStempelExecution(docId) {
+  const btn = document.getElementById('btn-confirm-stempel');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.9';
+    btn.innerHTML = `
+      <svg style="width: 16px; height: 16px; animation: spin 0.9s linear infinite; vertical-align: middle; margin-right: 8px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+        <path d="M12 2a10 10 0 0 1 10 10"/>
+      </svg>
+      Membubuhkan Stempel...
+    `;
+  }
+
+  setTimeout(() => {
+    executeStampVerification(docId);
+  }, 1000);
 }
 
 function confirmApproveSurat(docId) {
@@ -6128,6 +6685,7 @@ function getTemplatSuratList() {
     appState.data.templatSuratList = [
       {
         id: "tpl-1",
+        nomor: "IT.A.01",
         nama: "Surat Akuntansi Keuangan",
         unitKerja: "Semua Unit",
         tipe: "Surat Antar Unit Kerja",
@@ -6141,18 +6699,31 @@ function getTemplatSuratList() {
       },
       {
         id: "tpl-2",
-        nama: "Surat Eksternal Digital",
+        nomor: "ED.A.01",
+        nama: "Surat Eksternal",
         unitKerja: "Semua Unit",
         tipe: "Surat Keluar",
         tandaTanganDigital: true,
         stampDigital: true,
         tujuan: "Eksternal",
         penerima: "-",
-        status: "Inactive",
+        status: "Active",
         diperbaruiTanggal: "21 Juli 2026",
         diperbaruiOleh: "Ragil Brilyan"
       }
     ];
+  } else {
+    appState.data.templatSuratList.forEach((item, idx) => {
+      if (!item.nomor || item.nomor.includes('/TPL') || item.nomor.startsWith('TPL-') || item.nomor.startsWith('00')) {
+        if (item.id === 'tpl-1') item.nomor = 'IT.A.01';
+        else if (item.id === 'tpl-2') item.nomor = 'ED.A.01';
+        else item.nomor = `IT.A.0${idx + 1}`;
+      }
+      if (item.id === 'tpl-2') {
+        item.nama = 'Surat Eksternal';
+        item.status = 'Active';
+      }
+    });
   }
   return appState.data.templatSuratList;
 }
@@ -6171,6 +6742,7 @@ function renderTemplatSuratView() {
   const filtered = list.filter(item => {
     if (query) {
       const match = (
+        (item.nomor && item.nomor.toLowerCase().includes(query)) ||
         (item.nama && item.nama.toLowerCase().includes(query)) ||
         (item.unitKerja && item.unitKerja.toLowerCase().includes(query)) ||
         (item.tipe && item.tipe.toLowerCase().includes(query)) ||
@@ -6233,7 +6805,7 @@ function renderTemplatSuratView() {
         <input 
           type="text" 
           class="klasifikasi-search-input" 
-          placeholder="Cari Nama/Unit Kerja/Tipe/Tujuan..." 
+          placeholder="Cari Nomor/Nama/Unit Kerja/Tipe/Tujuan..." 
           value="${escapeHtml(appState.templatSuratSearchQuery || '')}"
           oninput="handleTemplatSuratSearch(this.value)"
         >
@@ -6257,6 +6829,7 @@ function renderTemplatSuratView() {
           <thead>
             <tr>
               <th style="width: 70px; padding-left: 20px;">Action</th>
+              <th style="min-width: 140px;">Nomor</th>
               <th style="min-width: 170px;">Nama</th>
               <th style="min-width: 120px;">Unit Kerja</th>
               <th style="min-width: 160px;">Tipe</th>
@@ -6272,7 +6845,7 @@ function renderTemplatSuratView() {
           <tbody>
             ${pageItems.length === 0 ? `
               <tr>
-                <td colspan="11" style="text-align: center; padding: 40px; color: #94A3B3;">
+                <td colspan="12" style="text-align: center; padding: 40px; color: #94A3B3;">
                   Tidak ada templat surat yang sesuai pencarian.
                 </td>
               </tr>
@@ -6282,6 +6855,9 @@ function renderTemplatSuratView() {
                   <button class="action-icon-btn btn-edit" title="Edit Templat Surat" onclick="openEditTemplatSurat('${item.id}')">
                     ${getIcon('edit', 17)}
                   </button>
+                </td>
+                <td style="font-weight: 600; color: #1E293B; font-size: 13px;">
+                  ${escapeHtml(item.nomor || '-')}
                 </td>
                 <td style="font-weight: 500; color: #1E293B;">
                   ${escapeHtml(item.nama)}
@@ -6430,6 +7006,7 @@ function changeTemplatSuratPage(newPage) {
 function openCreateTemplatSurat() {
   appState.editingTemplateId = null;
   appState.templateForm = {
+    nomor: '',
     nama: '',
     unitKerja: '',
     tipe: 'Surat Antar Unit Kerja',
@@ -6449,6 +7026,7 @@ function openEditTemplatSurat(id) {
 
   appState.editingTemplateId = id;
   appState.templateForm = {
+    nomor: item.nomor || '',
     nama: item.nama || '',
     unitKerja: item.unitKerja || '',
     tipe: item.tipe || 'Surat Antar Unit Kerja',
@@ -6465,6 +7043,7 @@ function openEditTemplatSurat(id) {
 function renderBuatTemplatSuratView() {
   if (!appState.templateForm) {
     appState.templateForm = {
+      nomor: '',
       tandaTanganDigital: false,
       stampDigital: false,
       status: 'Active'
@@ -6498,6 +7077,12 @@ function renderBuatTemplatSuratView() {
         <!-- Card 1: Informasi Template -->
         <div class="template-card">
           <div class="template-card-title">Informasi Template</div>
+
+          <!-- Nomor * -->
+          <div class="modal-floating-field">
+            <label class="modal-floating-label">Nomor <span class="required-star">*</span></label>
+            <input type="text" id="tpl-form-nomor" class="modal-floating-input" placeholder="Contoh: IT.A.01" value="${escapeHtml(formData.nomor || '')}" required>
+          </div>
 
           <!-- Nama * -->
           <div class="modal-floating-field">
@@ -6867,6 +7452,7 @@ function formatTemplateEditor(command, value = null) {
 }
 
 function saveTemplate(isDraft = false) {
+  const nomorInput = document.getElementById('tpl-form-nomor');
   const namaInput = document.getElementById('tpl-form-nama');
   const unitInput = document.getElementById('tpl-form-unit');
   const tipeInput = document.getElementById('tpl-form-tipe');
@@ -6876,7 +7462,14 @@ function saveTemplate(isDraft = false) {
   const stampInput = document.getElementById('tpl-form-stamp');
   const statusInput = document.getElementById('tpl-form-status-val');
 
+  const nomor = nomorInput ? nomorInput.value.trim() : '';
   const nama = namaInput ? namaInput.value.trim() : '';
+
+  if (!nomor) {
+    showToast('Harap masukkan nomor template surat.', true);
+    if (nomorInput) nomorInput.focus();
+    return;
+  }
   if (!nama) {
     showToast('Harap masukkan nama template surat.', true);
     if (namaInput) namaInput.focus();
@@ -6902,6 +7495,7 @@ function saveTemplate(isDraft = false) {
   if (appState.editingTemplateId) {
     const idx = list.findIndex(t => t.id === appState.editingTemplateId);
     if (idx !== -1) {
+      list[idx].nomor = nomor;
       list[idx].nama = nama;
       list[idx].unitKerja = unitKerja;
       list[idx].tipe = tipe;
@@ -6917,6 +7511,7 @@ function saveTemplate(isDraft = false) {
     const newId = `tpl-${Date.now()}`;
     list.unshift({
       id: newId,
+      nomor: nomor,
       nama: nama,
       unitKerja: unitKerja,
       tipe: tipe,
@@ -8558,19 +9153,40 @@ function renderPilihGroupModalContent() {
   const isExp = (id) => state.expandedNodes.has(id);
   const isChk = (id) => state.checkedNodes.has(id);
 
+  const renderCb = (id) => `
+    <span class="pilih-group-custom-cb ${isChk(id) ? 'checked' : ''}" onclick="togglePilihGroupNodeCheck('${id}')">
+      ${isChk(id) ? '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+    </span>
+  `;
+
+  const renderChv = (id, expanded) => `
+    <span style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: #475467; flex-shrink: 0;" onclick="togglePilihGroupNodeExpand('${id}')">
+      ${expanded ? `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      ` : `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      `}
+    </span>
+  `;
+
   modalContainer.innerHTML = `
-    <div class="modal-backdrop" onclick="closePilihGroupModal()"></div>
-    <div class="modal-dialog pilih-group-modal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; padding: 24px; max-height: 88vh; display: flex; flex-direction: column;">
+    <div class="modal-backdrop" onclick="closePilihGroupModal()" style="position: fixed; inset: 0; background: rgba(16, 24, 40, 0.7); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); z-index: 1040; cursor: pointer;"></div>
+    <div class="modal-dialog pilih-group-modal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; padding: 24px 28px 20px 28px; max-height: 90vh; display: flex; flex-direction: column;">
       
-      <!-- Modal Header (Matching Screenshot 2) -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-        <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0;">Pilih Group</h3>
-        <button class="modal-close-icon-btn" onclick="closePilihGroupModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748B; line-height: 1;">&times;</button>
+      <!-- Modal Header (Matching media_1792492208389_4ff32f11.png) -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0; letter-spacing: -0.01em;">Pilih Group</h3>
+        <button type="button" onclick="closePilihGroupModal()" style="background: none; border: none; padding: 4px; cursor: pointer; color: #64748B; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; transition: color 0.15s;" onmouseover="this.style.color='#101828'" onmouseout="this.style.color='#64748B'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
 
-      <!-- Search Input -->
-      <div style="position: relative; margin-bottom: 16px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);">
+      <!-- Search Input (Matching Reference) -->
+      <div style="position: relative; margin-bottom: 20px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none;">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
@@ -8579,126 +9195,114 @@ function renderPilihGroupModalContent() {
           placeholder="Cari Group"
           value="${escapeHtml(state.searchQuery || '')}"
           oninput="onSearchPilihGroup(this.value)"
-          style="width: 100%; border: 1px solid #D0D5DD; border-radius: 8px; padding: 9px 14px 9px 38px; font-size: 13.5px; outline: none;"
+          style="width: 100%; height: 42px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 0 14px 0 42px; font-size: 13.5px; color: #101828; background: #FFFFFF; outline: none; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s;"
+          onfocus="this.style.borderColor='#00AD78'; this.style.boxShadow='0 0 0 3px rgba(0, 173, 120, 0.1)';"
+          onblur="this.style.borderColor='#D0D5DD'; this.style.boxShadow='none';"
         />
       </div>
 
-      <!-- Scrollable Group Tree (Matching Screenshot 2) -->
-      <div style="flex: 1; overflow-y: auto; padding-right: 6px; margin-bottom: 20px;">
+      <!-- Scrollable Group Tree (Matching Reference) -->
+      <div class="pilih-group-scroll-area" style="flex: 1; overflow-y: auto; padding-right: 8px; margin-bottom: 20px; min-height: 280px;">
         
         <!-- Level 1: PT Pupuk Indonesia -->
         <div style="margin-bottom: 8px;">
-          <div class="pilih-group-tree-row">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="cursor: pointer; display: inline-flex; align-items: center; color: #64748B;" onclick="togglePilihGroupNodeExpand('grp-2')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: ${isExp('grp-2') ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>
-              </span>
-              <input type="checkbox" class="pilih-group-checkbox" ${isChk('grp-2') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('grp-2')">
-              <span style="font-size: 13.5px; font-weight: 600; color: #101828;">PT Pupuk Indonesia</span>
-            </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0;">
+            ${renderChv('grp-2', isExp('grp-2'))}
+            ${renderCb('grp-2')}
+            <span style="font-size: 14px; font-weight: 600; color: #101828;">PT Pupuk Indonesia</span>
           </div>
 
           ${isExp('grp-2') ? `
-            <div style="padding-left: 28px; margin-top: 6px;">
+            <div style="padding-left: 32px; margin-top: 4px;">
               
               <!-- Level 2: Direktorat Utama -->
               <div style="margin-bottom: 6px;">
-                <div class="pilih-group-tree-row">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="cursor: pointer; display: inline-flex; align-items: center; color: #64748B;" onclick="togglePilihGroupNodeExpand('grp-3')">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: ${isExp('grp-3') ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>
-                    </span>
-                    <input type="checkbox" class="pilih-group-checkbox" ${isChk('grp-3') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('grp-3')">
-                    <span style="font-size: 13.5px; font-weight: 500; color: #1E293B;">Direktorat Utama</span>
-                  </div>
+                <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0;">
+                  ${renderChv('grp-3', isExp('grp-3'))}
+                  ${renderCb('grp-3')}
+                  <span style="font-size: 14px; font-weight: 500; color: #101828;">Direktorat Utama</span>
                 </div>
 
                 ${isExp('grp-3') ? `
-                  <div style="padding-left: 28px; margin-top: 6px;">
+                  <div style="padding-left: 32px; margin-top: 4px;">
                     
                     <!-- Level 3: Kompartemen DDS -->
                     <div style="margin-bottom: 6px;">
-                      <div class="pilih-group-tree-row">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                          <span style="cursor: pointer; display: inline-flex; align-items: center; color: #64748B;" onclick="togglePilihGroupNodeExpand('grp-5')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: ${isExp('grp-5') ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>
-                          </span>
-                          <input type="checkbox" class="pilih-group-checkbox" ${isChk('grp-5') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('grp-5')">
-                          <span style="font-size: 13.5px; font-weight: 500; color: #1E293B;">Kompartemen DDS</span>
-                        </div>
+                      <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0;">
+                        ${renderChv('grp-5', isExp('grp-5'))}
+                        ${renderCb('grp-5')}
+                        <span style="font-size: 14px; font-weight: 500; color: #101828;">Kompartemen DDS</span>
                       </div>
 
                       ${isExp('grp-5') ? `
-                        <div style="padding-left: 28px; margin-top: 6px;">
+                        <div style="padding-left: 32px; margin-top: 4px;">
                           
-                          <!-- Level 4: Dept DCS (Matching Screenshot 2 with user count 👥 625) -->
+                          <!-- Level 4: Dept DCS (Matching Reference with user count 👥 625) -->
                           <div style="margin-bottom: 6px;">
-                            <div class="pilih-group-tree-row">
-                              <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="cursor: pointer; display: inline-flex; align-items: center; color: #64748B;" onclick="togglePilihGroupNodeExpand('grp-6')">
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: ${isExp('grp-6') ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>
-                                </span>
-                                <input type="checkbox" class="pilih-group-checkbox" ${isChk('grp-6') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('grp-6')">
-                                <span style="font-size: 13.5px; font-weight: 500; color: #1E293B;">Dept DCS</span>
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
+                              <div style="display: flex; align-items: center; gap: 12px;">
+                                ${renderChv('grp-6', isExp('grp-6'))}
+                                ${renderCb('grp-6')}
+                                <span style="font-size: 14px; font-weight: 500; color: #101828;">Dept DCS</span>
                               </div>
-                              <div style="display: flex; align-items: center; gap: 5px; color: #64748B; font-size: 12.5px;">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                              <div style="display: flex; align-items: center; gap: 6px; color: #64748B; font-size: 12.5px; font-weight: 500;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                 <span>625</span>
                               </div>
                             </div>
 
-                            <!-- Level 5: Users under Dept DCS (Matching Screenshot 2) -->
+                            <!-- Level 5: Users under Dept DCS (Checkbox aligned under Dept DCS checkbox) -->
                             ${isExp('grp-6') ? `
-                              <div style="padding-left: 32px; margin-top: 8px; display: flex; flex-direction: column; gap: 10px;">
+                              <div style="padding-left: 28px; margin-top: 8px; display: flex; flex-direction: column; gap: 14px;">
                                 
                                 <!-- User 1 -->
-                                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                                  <input type="checkbox" class="pilih-group-checkbox" style="margin-top: 2px;" ${isChk('user-94071741') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('user-94071741')">
-                                  <div>
-                                    <div style="font-size: 13px; font-weight: 600; color: #101828;">A Nur Fadilla - 94071741</div>
-                                    <div style="font-size: 11.5px; color: #64748B;">94071741 &bull; Admin Project Agrosolution</div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                  ${renderCb('user-94071741')}
+                                  <div style="line-height: 1.35;">
+                                    <div style="font-size: 13.5px; font-weight: 600; color: #101828;">A Nur Fadilla - 94071741</div>
+                                    <div style="font-size: 12px; color: #64748B; margin-top: 2px;">94071741 &bull; Admin Project Agrosolution</div>
                                   </div>
                                 </div>
 
                                 <!-- User 2 -->
-                                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                                  <input type="checkbox" class="pilih-group-checkbox" style="margin-top: 2px;" ${isChk('user-88112233') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('user-88112233')">
-                                  <div>
-                                    <div style="font-size: 13px; font-weight: 600; color: #101828;">Budi Santoso - 88112233</div>
-                                    <div style="font-size: 11.5px; color: #64748B;">94071741 &bull; Admin Project Agrosolution</div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                  ${renderCb('user-88112233')}
+                                  <div style="line-height: 1.35;">
+                                    <div style="font-size: 13.5px; font-weight: 600; color: #101828;">Budi Santoso - 88112233</div>
+                                    <div style="font-size: 12px; color: #64748B; margin-top: 2px;">94071741 &bull; Admin Project Agrosolution</div>
                                   </div>
                                 </div>
 
                                 <!-- User 3 -->
-                                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                                  <input type="checkbox" class="pilih-group-checkbox" style="margin-top: 2px;" ${isChk('user-92033456') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('user-92033456')">
-                                  <div>
-                                    <div style="font-size: 13px; font-weight: 600; color: #101828;">Citra Dewi - 92033456</div>
-                                    <div style="font-size: 11.5px; color: #64748B;">94071741 &bull; Admin Project Agrosolution</div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                  ${renderCb('user-92033456')}
+                                  <div style="line-height: 1.35;">
+                                    <div style="font-size: 13.5px; font-weight: 600; color: #101828;">Citra Dewi - 92033456</div>
+                                    <div style="font-size: 12px; color: #64748B; margin-top: 2px;">94071741 &bull; Admin Project Agrosolution</div>
                                   </div>
                                 </div>
 
                                 <!-- User 4 -->
-                                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                                  <input type="checkbox" class="pilih-group-checkbox" style="margin-top: 2px;" ${isChk('user-89214567') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('user-89214567')">
-                                  <div>
-                                    <div style="font-size: 13px; font-weight: 600; color: #101828;">Rizky Putra - 89214567</div>
-                                    <div style="font-size: 11.5px; color: #64748B;">84736210 &bull; Senior Developer Agrosolution</div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                  ${renderCb('user-89214567')}
+                                  <div style="line-height: 1.35;">
+                                    <div style="font-size: 13.5px; font-weight: 600; color: #101828;">Rizky Putra - 89214567</div>
+                                    <div style="font-size: 12px; color: #64748B; margin-top: 2px;">84736210 &bull; Senior Developer Agrosolution</div>
                                   </div>
                                 </div>
 
                                 <!-- User 5 -->
-                                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                                  <input type="checkbox" class="pilih-group-checkbox" style="margin-top: 2px;" ${isChk('user-90127654') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('user-90127654')">
-                                  <div>
-                                    <div style="font-size: 13px; font-weight: 600; color: #101828;">Nina Safitri - 90127654</div>
-                                    <div style="font-size: 11.5px; color: #64748B;">76381294 &bull; UI/UX Designer Agrosolution</div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                  ${renderCb('user-90127654')}
+                                  <div style="line-height: 1.35;">
+                                    <div style="font-size: 13.5px; font-weight: 600; color: #101828;">Nina Safitri - 90127654</div>
+                                    <div style="font-size: 12px; color: #64748B; margin-top: 2px;">76381294 &bull; UI/UX Designer Agrosolution</div>
                                   </div>
                                 </div>
 
-                                <!-- Load 620 More Button (Matching Screenshot 2) -->
-                                <div style="text-align: center; padding: 8px 0;">
-                                  <button type="button" onclick="showToast('Memuat seluruh 620 anggota user Dept DCS...')" style="background: none; border: none; color: #00AD78; font-weight: 700; font-size: 12.5px; cursor: pointer;">
+                                <!-- Load 620 More Button (Matching Reference) -->
+                                <div style="text-align: center; padding: 12px 0 6px 0;">
+                                  <button type="button" onclick="showToast('Memuat seluruh 620 anggota user Dept DCS...')" style="background: none; border: none; color: #00AD78; font-weight: 700; font-size: 13px; cursor: pointer;">
                                     Load 620 more
                                   </button>
                                 </div>
@@ -8718,18 +9322,16 @@ function renderPilihGroupModalContent() {
 
               </div>
 
-              <!-- Level 2: Direktorat Operasi (Matching Screenshot 2) -->
-              <div style="margin-top: 6px;">
-                <div class="pilih-group-tree-row">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="cursor: pointer; display: inline-flex; align-items: center; color: #64748B;" onclick="togglePilihGroupNodeExpand('grp-4')">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: ${isExp('grp-4') ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>
-                    </span>
-                    <input type="checkbox" class="pilih-group-checkbox" ${isChk('grp-4') ? 'checked' : ''} onchange="togglePilihGroupNodeCheck('grp-4')">
-                    <span style="font-size: 13.5px; font-weight: 500; color: #1E293B;">Direktorat Operasi</span>
+              <!-- Level 2: Direktorat Operasi (Matching Reference) -->
+              <div style="margin-top: 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    ${renderChv('grp-4', isExp('grp-4'))}
+                    ${renderCb('grp-4')}
+                    <span style="font-size: 14px; font-weight: 500; color: #101828;">Direktorat Operasi</span>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 5px; color: #64748B; font-size: 12.5px;">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <div style="display: flex; align-items: center; gap: 6px; color: #64748B; font-size: 12.5px; font-weight: 500;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span>625</span>
                   </div>
                 </div>
@@ -8742,12 +9344,12 @@ function renderPilihGroupModalContent() {
 
       </div>
 
-      <!-- Modal Footer (Matching Screenshot 2) -->
-      <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid #E2E8F0;">
-        <button type="button" class="btn btn-secondary" onclick="closePilihGroupModal()" style="padding: 10px 22px; font-weight: 600; border-radius: 8px;">
+      <!-- Modal Footer (Exact Match media_1792492208389_4ff32f11.png - No top border, clean spacing) -->
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding-top: 12px;">
+        <button type="button" onclick="closePilihGroupModal()" style="padding: 9px 20px; border-radius: 8px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='#FFFFFF'">
           Cancel
         </button>
-        <button type="button" class="btn btn-primary" onclick="submitPilihGroup()" style="padding: 10px 24px; font-weight: 600; border-radius: 8px; background: #00AD78; border-color: #00AD78; color: #FFFFFF;">
+        <button type="button" onclick="submitPilihGroup()" style="padding: 9px 22px; border-radius: 8px; border: none; background: #00AD78; color: #FFFFFF; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#009567'" onmouseout="this.style.background='#00AD78'">
           Add Group
         </button>
       </div>
@@ -8857,6 +9459,540 @@ function submitPilihGroup() {
 function closePilihGroupModal() {
   const modalContainer = document.getElementById('modal-container');
   if (modalContainer) modalContainer.innerHTML = '';
+}
+
+// ==========================================================================
+// KONTAK EKSTERNAL (Exact Match with media_1792487412517_476b8a68.png,
+// media_1792487450230_e67ae8e3.png, and media_1792487457070_bdb64e30.png)
+// ==========================================================================
+
+function getKontakEksternalDocuments() {
+  if (!appState.data || !appState.data.kontakEksternal) return [];
+  let list = [...appState.data.kontakEksternal];
+
+  // Search filter
+  const q = (appState.kontakEksternalSearchQuery || '').toLowerCase().trim();
+  if (q) {
+    list = list.filter(k => 
+      (k.nama || '').toLowerCase().includes(q) ||
+      (k.instansi || '').toLowerCase().includes(q) ||
+      (k.email || '').toLowerCase().includes(q) ||
+      (k.nomorTelepon || '').toLowerCase().includes(q)
+    );
+  }
+
+  // Filter drawer: Instansi
+  const filterInstansi = appState.kontakEksternalFilterInstansi || 'all';
+  if (filterInstansi && filterInstansi !== 'all' && filterInstansi !== 'Semua Instansi') {
+    list = list.filter(k => (k.instansi || '').toLowerCase().includes(filterInstansi.toLowerCase()));
+  }
+
+  return list;
+}
+
+function getKontakEksternalPaginated() {
+  const all = getKontakEksternalDocuments();
+  const total = all.length;
+  const rowsPerPage = appState.kontakEksternalRowsPerPage || 10;
+  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
+  let currentPage = appState.kontakEksternalCurrentPage || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  appState.kontakEksternalCurrentPage = currentPage;
+
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginated = all.slice(startIndex, startIndex + rowsPerPage);
+
+  return {
+    items: paginated,
+    total,
+    totalPages,
+    currentPage,
+    startIndex: total === 0 ? 0 : startIndex + 1,
+    endIndex: Math.min(startIndex + rowsPerPage, total)
+  };
+}
+
+function renderKontakEksternalView() {
+  const { total } = getKontakEksternalPaginated();
+  const searchQuery = appState.kontakEksternalSearchQuery || '';
+
+  return `
+    <!-- Page Header (Matching media_1792487412517_476b8a68.png) -->
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 24px; font-weight: 700; color: #101828; margin: 0 0 6px 0;">Kontak Eksternal</h2>
+      <div style="font-size: 13px; color: #64748B;">Kontak Eksternal</div>
+    </div>
+
+    <!-- Main Card matching Screenshot -->
+    <div class="card" style="border: 1px solid #EAECF0; border-radius: 12px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04); overflow: hidden;">
+      
+      <!-- Toolbar: Search input + Filter button (No Add button as instructed) -->
+      <div style="padding: 18px 24px; border-bottom: 1px solid #EAECF0; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+        <div style="position: relative; flex: 1; max-width: 720px;">
+          <input type="text"
+                 id="kontak-eksternal-search-input"
+                 placeholder="Cari Nama/Instansi/Email/Nomor Telepon"
+                 value="${escapeHtml(searchQuery)}"
+                 oninput="handleKontakEksternalSearch(this.value)"
+                 style="width: 100%; height: 40px; padding: 8px 14px 8px 38px; border-radius: 8px; border: 1px solid #D0D5DD; font-size: 13.5px; color: #101828; background: #FFFFFF; outline: none; box-sizing: border-box;" />
+          <svg style="position: absolute; left: 12px; top: 12px; pointer-events: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+
+        <div>
+          <button type="button" 
+                  onclick="openFilterDrawer('kontak-eksternal')" 
+                  style="height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #D0D5DD; background: ${(appState.kontakEksternalFilterInstansi && appState.kontakEksternalFilterInstansi !== 'all') ? '#E8F7F0' : '#FFFFFF'}; color: ${(appState.kontakEksternalFilterInstansi && appState.kontakEksternalFilterInstansi !== 'all') ? '#00AD78' : '#344054'}; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); transition: all 0.15s ease;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <span>Filter</span>
+            ${(appState.kontakEksternalFilterInstansi && appState.kontakEksternalFilterInstansi !== 'all') ? '<span class="filter-btn-active-dot"></span>' : ''}
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <thead>
+            <tr style="background: #F8FAFC; border-bottom: 1px solid #EAECF0;">
+              <th style="padding: 12px 18px; font-size: 12.5px; font-weight: 600; color: #475467; width: 95px; letter-spacing: 0.02em;">Action</th>
+              <th style="padding: 12px 18px; font-size: 12.5px; font-weight: 600; color: #475467; width: 220px; letter-spacing: 0.02em;">Nama</th>
+              <th style="padding: 12px 18px; font-size: 12.5px; font-weight: 600; color: #475467; width: 220px; letter-spacing: 0.02em;">Instansi</th>
+              <th style="padding: 12px 18px; font-size: 12.5px; font-weight: 600; color: #475467; width: 220px; letter-spacing: 0.02em;">Email</th>
+              <th style="padding: 12px 18px; font-size: 12.5px; font-weight: 600; color: #475467; width: 170px; letter-spacing: 0.02em;">Nomor Telepon</th>
+              <th style="padding: 12px 18px; font-size: 12.5px; font-weight: 600; color: #475467; width: 170px; letter-spacing: 0.02em;">Tanggal Diperbaharui</th>
+            </tr>
+          </thead>
+          <tbody id="kontak-eksternal-table-tbody">
+            ${getKontakEksternalTableRowsHtml()}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer (Dense Toggle & Pagination) -->
+      <div id="kontak-eksternal-table-footer">
+        ${getKontakEksternalTableFooterInnerHtml()}
+      </div>
+
+    </div>
+  `;
+}
+
+function getKontakEksternalTableRowsHtml() {
+  const { items, total } = getKontakEksternalPaginated();
+  const isDense = !!appState.kontakEksternalDense;
+  const pad = isDense ? '9px 18px' : '15px 18px';
+  const fontSize = isDense ? '13px' : '13.5px';
+
+  if (total === 0) {
+    return `
+      <tr>
+        <td colspan="6" style="padding: 48px 20px; text-align: center; color: #667085;">
+          <div style="font-size: 28px; margin-bottom: 8px;">📇</div>
+          <div style="font-size: 14px; font-weight: 600; color: #101828; margin-bottom: 4px;">Belum Ada Kontak Eksternal</div>
+          <div style="font-size: 13px;">Kontak eksternal akan otomatis ditambahkan saat membuat surat baru bertipe Eksternal.</div>
+        </td>
+      </tr>
+    `;
+  }
+
+  return items.map(k => `
+    <tr style="border-bottom: 1px solid #EAECF0; background: #FFFFFF; transition: background 0.12s ease;"
+        onmouseover="this.style.background='#F8FAFC'"
+        onmouseout="this.style.background='#FFFFFF'">
+      
+      <!-- Action: Edit (Pencil) & Delete (Trash) -->
+      <td style="padding: ${pad}; vertical-align: middle;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <!-- Edit button (Pencil icon) -->
+          <button type="button" 
+                  title="Edit Kontak Eksternal"
+                  onclick="openEditKontakEksternalModal('${escapeHtml(k.id)}')"
+                  style="background: none; border: none; cursor: pointer; color: #475467; padding: 4px; display: inline-flex; align-items: center; border-radius: 4px; transition: color 0.15s ease;"
+                  onmouseover="this.style.color='#00AD78'"
+                  onmouseout="this.style.color='#475467'">
+            ${getIcon('edit', 16)}
+          </button>
+
+          <!-- Delete button (Trash icon) -->
+          <button type="button" 
+                  title="Delete Kontak Eksternal"
+                  onclick="openDeleteKontakEksternalModal('${escapeHtml(k.id)}')"
+                  style="background: none; border: none; cursor: pointer; color: #F04438; padding: 4px; display: inline-flex; align-items: center; border-radius: 4px; transition: opacity 0.15s ease;"
+                  onmouseover="this.style.opacity='0.75'"
+                  onmouseout="this.style.opacity='1'">
+            ${getIcon('trash', 16)}
+          </button>
+        </div>
+      </td>
+
+      <!-- Nama -->
+      <td style="padding: ${pad}; font-size: ${fontSize}; color: #101828; font-weight: 500; vertical-align: middle;">
+        ${escapeHtml(k.nama || '-')}
+      </td>
+
+      <!-- Instansi -->
+      <td style="padding: ${pad}; font-size: ${fontSize}; color: #344054; vertical-align: middle;">
+        ${escapeHtml(k.instansi || '-')}
+      </td>
+
+      <!-- Email -->
+      <td style="padding: ${pad}; font-size: ${fontSize}; color: #475467; vertical-align: middle;">
+        ${escapeHtml(k.email || '-')}
+      </td>
+
+      <!-- Nomor Telepon -->
+      <td style="padding: ${pad}; font-size: ${fontSize}; color: #344054; vertical-align: middle;">
+        ${escapeHtml(k.nomorTelepon || '-')}
+      </td>
+
+      <!-- Tanggal Diperbaharui -->
+      <td style="padding: ${pad}; font-size: ${fontSize}; color: #475467; vertical-align: middle;">
+        ${escapeHtml(k.tanggalDiperbaharui || '-')}
+      </td>
+
+    </tr>
+  `).join('');
+}
+
+function getKontakEksternalTableFooterInnerHtml() {
+  const { total, totalPages, currentPage, startIndex, endIndex } = getKontakEksternalPaginated();
+  const isDense = !!appState.kontakEksternalDense;
+  const rowsPerPage = appState.kontakEksternalRowsPerPage || 10;
+
+  return `
+    <div style="padding: 12px 24px; border-top: 1px solid #EAECF0; display: flex; align-items: center; justify-content: space-between; background: #FFFFFF; font-size: 13px; color: #344054; flex-wrap: wrap; gap: 12px;">
+      
+      <!-- Left: Dense toggle -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label onclick="toggleKontakEksternalDense()" style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+          <div style="width: 36px; height: 20px; border-radius: 10px; background: ${isDense ? '#00AD78' : '#CBD5E1'}; position: relative; transition: background 0.2s ease;">
+            <div style="width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; position: absolute; top: 2px; left: ${isDense ? '18px' : '2px'}; transition: left 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+          </div>
+          <span style="font-weight: 500; color: #334155; font-size: 13px;">Dense</span>
+        </label>
+      </div>
+
+      <!-- Right: Rows per page + Range info + Pagination buttons -->
+      <div style="display: flex; align-items: center; gap: 18px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: #667085;">Rows per page:</span>
+          <select onchange="onKontakEksternalRowsPerPageChange(this.value)"
+                  style="border: 1px solid #D0D5DD; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; color: #344054; background: #FFFFFF; cursor: pointer; outline: none;">
+            <option value="5" ${rowsPerPage === 5 ? 'selected' : ''}>5</option>
+            <option value="10" ${rowsPerPage === 10 ? 'selected' : ''}>10</option>
+            <option value="25" ${rowsPerPage === 25 ? 'selected' : ''}>25</option>
+            <option value="50" ${rowsPerPage === 50 ? 'selected' : ''}>50</option>
+          </select>
+        </div>
+
+        <div style="color: #667085; font-weight: 500; min-width: 75px;">
+          ${startIndex}-${endIndex} of ${total}
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button type="button" 
+                  class="pagination-arrow-btn"
+                  onclick="changeKontakEksternalPage(-1)"
+                  ${currentPage <= 1 ? 'disabled style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #EAECF0; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; color: #D0D5DD; cursor: not-allowed;"' : 'style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #D0D5DD; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; color: #475467; cursor: pointer;"'}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button type="button" 
+                  class="pagination-arrow-btn"
+                  onclick="changeKontakEksternalPage(1)"
+                  ${currentPage >= totalPages ? 'disabled style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #EAECF0; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; color: #D0D5DD; cursor: not-allowed;"' : 'style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #D0D5DD; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; color: #475467; cursor: pointer;"'}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+function handleKontakEksternalSearch(val) {
+  appState.kontakEksternalSearchQuery = val || '';
+  appState.kontakEksternalCurrentPage = 1;
+  const tbody = document.getElementById('kontak-eksternal-table-tbody');
+  const footer = document.getElementById('kontak-eksternal-table-footer');
+  if (tbody) tbody.innerHTML = getKontakEksternalTableRowsHtml();
+  if (footer) footer.innerHTML = getKontakEksternalTableFooterInnerHtml();
+}
+
+function toggleKontakEksternalDense() {
+  appState.kontakEksternalDense = !appState.kontakEksternalDense;
+  const tbody = document.getElementById('kontak-eksternal-table-tbody');
+  const footer = document.getElementById('kontak-eksternal-table-footer');
+  if (tbody) tbody.innerHTML = getKontakEksternalTableRowsHtml();
+  if (footer) footer.innerHTML = getKontakEksternalTableFooterInnerHtml();
+}
+
+function onKontakEksternalRowsPerPageChange(val) {
+  appState.kontakEksternalRowsPerPage = parseInt(val, 10);
+  appState.kontakEksternalCurrentPage = 1;
+  const tbody = document.getElementById('kontak-eksternal-table-tbody');
+  const footer = document.getElementById('kontak-eksternal-table-footer');
+  if (tbody) tbody.innerHTML = getKontakEksternalTableRowsHtml();
+  if (footer) footer.innerHTML = getKontakEksternalTableFooterInnerHtml();
+}
+
+function changeKontakEksternalPage(delta) {
+  const all = getKontakEksternalDocuments();
+  const totalPages = Math.max(1, Math.ceil(all.length / (appState.kontakEksternalRowsPerPage || 10)));
+  const target = (appState.kontakEksternalCurrentPage || 1) + delta;
+  if (target >= 1 && target <= totalPages) {
+    appState.kontakEksternalCurrentPage = target;
+    const tbody = document.getElementById('kontak-eksternal-table-tbody');
+    const footer = document.getElementById('kontak-eksternal-table-footer');
+    if (tbody) tbody.innerHTML = getKontakEksternalTableRowsHtml();
+    if (footer) footer.innerHTML = getKontakEksternalTableFooterInnerHtml();
+  }
+}
+
+// Edit Modal (Exact Match with media_1792487450230_e67ae8e3.png)
+function openEditKontakEksternalModal(contactId) {
+  if (!appState.data || !appState.data.kontakEksternal) return;
+  const contact = appState.data.kontakEksternal.find(k => k.id === contactId);
+  if (!contact) return;
+
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  modalContainer.innerHTML = `
+    <div class="modal-backdrop" onclick="closeModalContainer()" style="position: fixed; inset: 0; background: rgba(16, 24, 40, 0.7); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); z-index: 1040; cursor: pointer;"></div>
+    <div class="modal-dialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 480px; max-width: 92vw; background: #FFFFFF; border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); z-index: 1050; border: 1px solid #EAECF0;">
+      
+      <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0 0 20px 0;">Edit Kontak Eksternal</h3>
+
+      <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+        <div>
+          <label style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Nama <span style="color: #F04438;">*</span></label>
+          <input type="text" id="edit-ke-nama" value="${escapeHtml(contact.nama || '')}" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 14px; font-size: 13.5px; color: #101828; background: #FFFFFF; outline: none; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Instansi <span style="color: #F04438;">*</span></label>
+          <input type="text" id="edit-ke-instansi" value="${escapeHtml(contact.instansi || '')}" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 14px; font-size: 13.5px; color: #101828; background: #FFFFFF; outline: none; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">E-mail <span style="color: #F04438;">*</span></label>
+          <input type="email" id="edit-ke-email" value="${escapeHtml(contact.email || '')}" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 14px; font-size: 13.5px; color: #101828; background: #FFFFFF; outline: none; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Nomor Telepon <span style="color: #F04438;">*</span></label>
+          <input type="text" id="edit-ke-telepon" value="${escapeHtml(contact.nomorTelepon || '')}" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 14px; font-size: 13.5px; color: #101828; background: #FFFFFF; outline: none; box-sizing: border-box;" />
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+        <button type="button" onclick="closeModalContainer()" style="padding: 9px 18px; border-radius: 8px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;">
+          Cancel
+        </button>
+        <button type="button" onclick="saveEditKontakEksternal('${escapeHtml(contact.id)}')" style="padding: 9px 20px; border-radius: 8px; border: none; background: #101828; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease;">
+          Save Changes
+        </button>
+      </div>
+
+    </div>
+  `;
+}
+
+async function saveEditKontakEksternal(contactId) {
+  const nama = document.getElementById('edit-ke-nama')?.value.trim();
+  const instansi = document.getElementById('edit-ke-instansi')?.value.trim();
+  const email = document.getElementById('edit-ke-email')?.value.trim();
+  const telepon = document.getElementById('edit-ke-telepon')?.value.trim();
+
+  if (!nama || !instansi) {
+    showToast('Nama dan Instansi wajib diisi.', true);
+    return;
+  }
+
+  const contact = appState.data.kontakEksternal.find(k => k.id === contactId);
+  if (!contact) return;
+
+  const now = new Date();
+  const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+  contact.nama = nama;
+  contact.instansi = instansi;
+  contact.email = email;
+  contact.nomorTelepon = telepon;
+  contact.tanggalDiperbaharui = dateStr;
+
+  saveLocalCopy(appState.data);
+
+  try {
+    await fetch('/api/kontak-eksternal/' + contactId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(contact)
+    });
+  } catch (e) {
+    console.warn('Saved contact edit locally:', e);
+  }
+
+  closeModalContainer();
+  showToast('Kontak eksternal berhasil diperbarui.');
+  renderApp();
+}
+
+// Delete Modal (Exact Match with media_1792487457070_bdb64e30.png)
+function openDeleteKontakEksternalModal(contactId) {
+  if (!appState.data || !appState.data.kontakEksternal) return;
+  const contact = appState.data.kontakEksternal.find(k => k.id === contactId);
+  if (!contact) return;
+
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  modalContainer.innerHTML = `
+    <div class="modal-backdrop" onclick="closeModalContainer()" style="position: fixed; inset: 0; background: rgba(16, 24, 40, 0.7); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); z-index: 1040; cursor: pointer;"></div>
+    <div class="modal-dialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 440px; max-width: 92vw; background: #FFFFFF; border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); z-index: 1050; border: 1px solid #EAECF0;">
+      
+      <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0 0 12px 0;">Delete Kontak Eksternal</h3>
+
+      <p style="font-size: 14px; color: #475467; line-height: 1.5; margin: 0 0 24px 0;">
+        Apakah Anda yakin akan menghapus kontak eksternal <strong>${escapeHtml(contact.nama)}</strong>. Aktivitas ini tidak dapat dikembalikan
+      </p>
+
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+        <button type="button" onclick="closeModalContainer()" style="padding: 9px 18px; border-radius: 8px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;">
+          Cancel
+        </button>
+        <button type="button" onclick="confirmDeleteKontakEksternal('${escapeHtml(contact.id)}')" style="padding: 9px 20px; border-radius: 8px; border: 1px solid #F04438; background: #F04438; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease;">
+          Confirm
+        </button>
+      </div>
+
+    </div>
+  `;
+}
+
+async function confirmDeleteKontakEksternal(contactId) {
+  if (!appState.data || !appState.data.kontakEksternal) return;
+  const contact = appState.data.kontakEksternal.find(k => k.id === contactId);
+  const name = contact ? contact.nama : 'Kontak';
+
+  appState.data.kontakEksternal = appState.data.kontakEksternal.filter(k => k.id !== contactId);
+  saveLocalCopy(appState.data);
+
+  try {
+    await fetch('/api/kontak-eksternal/' + contactId, {
+      method: 'DELETE'
+    });
+  } catch (e) {
+    console.warn('Deleted contact locally:', e);
+  }
+
+  closeModalContainer();
+  showToast(`Kontak eksternal "${name}" berhasil dihapus.`);
+  renderApp();
+}
+
+function closeModalContainer() {
+  const modalContainer = document.getElementById('modal-container');
+  if (modalContainer) modalContainer.innerHTML = '';
+}
+
+// Auto-add external contact from Buat Surat Baru
+async function autoAddKontakEksternal(contactData) {
+  if (!appState.data) return null;
+  if (!appState.data.kontakEksternal) appState.data.kontakEksternal = [];
+
+  const now = new Date();
+  const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+  const nama = (contactData.nama || '').trim();
+  const instansi = (contactData.instansi || '').trim();
+  const email = (contactData.email || '').trim();
+  const telepon = (contactData.nomorTelepon || contactData.telepon || '').trim();
+
+  if (!nama && !instansi) return null;
+
+  // Check if contact already exists by email or (nama + instansi)
+  const existing = appState.data.kontakEksternal.find(k => 
+    (email && k.email && k.email.toLowerCase() === email.toLowerCase()) ||
+    (k.nama.toLowerCase() === nama.toLowerCase() && k.instansi.toLowerCase() === instansi.toLowerCase())
+  );
+
+  if (existing) {
+    if (instansi) existing.instansi = instansi;
+    if (email) existing.email = email;
+    if (telepon) existing.nomorTelepon = telepon;
+    existing.tanggalDiperbaharui = dateStr;
+    saveLocalCopy(appState.data);
+    try {
+      await fetch('/api/kontak-eksternal/' + existing.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(existing)
+      });
+    } catch (e) {}
+    return existing;
+  }
+
+  const newContact = {
+    id: 'ke-' + Date.now().toString().slice(-6),
+    nama: nama || instansi,
+    instansi: instansi || nama,
+    email: email,
+    nomorTelepon: telepon,
+    tanggalDiperbaharui: dateStr
+  };
+
+  appState.data.kontakEksternal.unshift(newContact);
+  saveLocalCopy(appState.data);
+
+  try {
+    await fetch('/api/kontak-eksternal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newContact)
+    });
+  } catch (e) {}
+
+  return newContact;
+}
+
+// Handlers for Buat Surat Baru when selecting external type
+function handleCreateSuratJenisChange(val) {
+  appState.createSuratJenis = val;
+  const contentArea = document.getElementById('main-content-view');
+  if (contentArea && (appState.currentPage === 'buat-surat-baru' || appState.currentPage === 'detail-surat-keluar')) {
+    contentArea.innerHTML = renderBuatSuratBaruView();
+  }
+}
+
+function populateFromExistingKontak(contactId) {
+  if (!contactId || !appState.data?.kontakEksternal) return;
+  const c = appState.data.kontakEksternal.find(k => k.id === contactId);
+  if (!c) return;
+  appState.createSuratExtInstansi = c.instansi;
+  appState.createSuratExtNama = c.nama;
+  appState.createSuratExtEmail = c.email;
+  appState.createSuratExtTelepon = c.nomorTelepon;
+  const instansiInput = document.getElementById('create-surat-ext-instansi');
+  const namaInput = document.getElementById('create-surat-ext-nama');
+  const emailInput = document.getElementById('create-surat-ext-email');
+  const teleponInput = document.getElementById('create-surat-ext-telepon');
+  if (instansiInput) instansiInput.value = c.instansi;
+  if (namaInput) namaInput.value = c.nama;
+  if (emailInput) emailInput.value = c.email;
+  if (teleponInput) teleponInput.value = c.nomorTelepon;
+  updatePaperPreviewTujuanEksternal();
+  showToast(`Memuat data penerima: ${c.nama} (${c.instansi})`);
+}
+
+function updatePaperPreviewTujuanEksternal() {
+  const nama = (appState.createSuratExtNama || '').trim();
+  const instansi = (appState.createSuratExtInstansi || '').trim();
+  const kepEl = document.getElementById('paper-preview-kepada');
+  const unitEl = document.getElementById('paper-preview-unit');
+  if (kepEl) kepEl.textContent = 'Sdr. ' + (nama || (instansi || 'Penerima Eksternal'));
+  if (unitEl) unitEl.textContent = instansi || 'Mitra / Lembaga Eksternal';
 }
 
 
@@ -10651,6 +11787,10 @@ function localVerifyStamp(docId) {
   const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) + ' WIB';
   const serialNo = 'PERURI-STMP-2026-' + Math.floor(10000000 + Math.random() * 90000000);
   doc.stempelStatus = 'Terverifikasi';
+  doc.isStamped = true;
+  doc.statusSuratKeluar = 'Completed';
+  doc.status = 'Disetujui / Selesai';
+  doc.statusBadge = 'success';
   doc.stempelDetail = {
     provider: 'Peruri Digital Security',
     verifikator: getCurrentPersona().name,
@@ -10663,14 +11803,10 @@ function localVerifyStamp(docId) {
     appState.data.providers[0].kuotaStempel.sisa -= 1;
   }
   if (doc.perluTindakLanjut) {
-    doc.status = 'Menunggu Tindak Lanjut';
-    doc.statusBadge = 'info';
     doc.currentAssigneeRole = 'recipient';
-    doc.currentAssigneeName = doc.penerima.name;
+    doc.currentAssigneeName = (doc.penerima && doc.penerima.name) || 'Penerima';
     doc.tindakLanjutStatus = 'Menunggu Laporan Tindak Lanjut dari Penerima';
   } else {
-    doc.status = 'Selesai';
-    doc.statusBadge = 'success';
     doc.currentAssigneeRole = null;
     doc.currentAssigneeName = 'Selesai';
   }

@@ -2456,6 +2456,32 @@ textarea.form-control {
   background: #D92D20;
 }
 
+/* Modal Backdrop Layer (Matching media_1792489467432_061544b3.png) */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(16, 24, 40, 0.7);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  z-index: 1040;
+  cursor: pointer;
+  animation: fadeInModalBackdrop 0.18s ease-out;
+}
+
+@keyframes fadeInModalBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Klasifikasi Surat Search & Filter Bar matching Image 1 */
 .klasifikasi-filter-bar {
   display: flex;
@@ -5216,35 +5242,67 @@ body.sidebar-collapsed .create-surat-fixed-bottom-bar {
   margin-top: 2px;
 }
 
-/* Modal Pilih Group */
+/* Modal Pilih Group (Exact Match with Reference media_1792492208389_4ff32f11.png) */
 .pilih-group-modal {
-  max-width: 580px;
-  width: 92%;
-  border-radius: 12px;
+  max-width: 660px;
+  width: 94%;
+  border-radius: 14px;
   background: #FFFFFF;
-  overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 20px 25px -5px rgba(16, 24, 40, 0.1), 0 10px 10px -5px rgba(16, 24, 40, 0.04);
+  border: 1px solid #EAECF0;
+  box-sizing: border-box;
 }
 
 .pilih-group-tree-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: background 0.15s;
+  padding: 6px 0;
+  background: transparent;
 }
 
-.pilih-group-tree-row:hover {
-  background: #F8FAFC;
-}
-
-.pilih-group-checkbox {
+.pilih-group-custom-cb {
   width: 18px;
   height: 18px;
-  accent-color: #00AD78;
-  cursor: pointer;
   border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.pilih-group-custom-cb.checked {
+  background: #00AD78;
+  border: 1px solid #00AD78;
+  color: #FFFFFF;
+}
+
+.pilih-group-custom-cb:not(.checked) {
+  background: #FFFFFF;
+  border: 1.5px solid #D0D5DD;
+  color: transparent;
+}
+
+.pilih-group-custom-cb:hover:not(.checked) {
+  border-color: #00AD78;
+}
+
+.pilih-group-scroll-area::-webkit-scrollbar {
+  width: 5px;
+}
+.pilih-group-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pilih-group-scroll-area::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+.pilih-group-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 /* Settings Modal */
@@ -5445,4 +5503,32 @@ body.sidebar-collapsed .create-surat-fixed-bottom-bar {
   margin-left: 6px;
   box-shadow: 0 0 0 2px #FFFFFF;
 }
+
+/* OTP Verification Modal Styling (Matching media_1792493342326_c98c317c.png) */
+.otp-input-box {
+  width: 52px;
+  height: 56px;
+  border: 1.5px solid #D0D5DD;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #101828;
+  background: #FFFFFF;
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.otp-input-box:focus,
+.otp-input-box.active {
+  border-color: #00AD78;
+  box-shadow: 0 0 0 3px rgba(0, 173, 120, 0.14);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 

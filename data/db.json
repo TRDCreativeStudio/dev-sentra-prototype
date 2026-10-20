@@ -153,37 +153,44 @@
       "hasAlert": false,
       "nomorSurat": "07344/A/TI/P14/ET/2026",
       "judul": "Rebuild Digital Office",
-      "status": "Draft",
-      "statusSuratKeluar": "Draft",
-      "role": "Drafter",
-      "diperbaharuiTanggal": "19/09/2024 11:44:41",
-      "diperbaharuiOleh": "Dary Ramadhan",
-      "pengirim": "Dary Ramadhan",
+      "status": "Menunggu Approval",
+      "statusSuratKeluar": "Waiting For Approval",
+      "role": "Approval",
+      "roleSuratKeluar": "Approval",
+      "diperbaharuiTanggal": "Selasa, 27 April 2026, 11:41",
+      "diperbaharuiOleh": "Agung Mahendra",
+      "pengirim": "Muhammad Ridha Fadli",
       "unitKerja": "Komp. Digitalisasi & Data Science",
       "prioritas": "Biasa",
       "sifat": "Terbatas",
-      "jenisSurat": "Nota Dinas",
-      "template": "Format Standar Nota Dinas Pupuk Indonesia",
+      "kecepatanTanggapan": "Biasa",
+      "jenisSurat": "Surat Antar Unit Kerja",
+      "template": "Surat Eksternal",
       "klasifikasi": "BL.01.04 (pilar Hukum dan Tata Kelola)",
+      "isSuratEksternal": true,
+      "perluStempel": true,
+      "perluTindakLanjut": true,
+      "currentAssigneeRole": "approver",
+      "currentAssigneeName": "Agung Mahendra (Approver)",
       "drafter": {
         "id": "drafter",
-        "name": "Dary Ramadhan",
+        "name": "Muhammad Ridha Fadli",
         "unit": "Komp. Digitalisasi & Data Science"
       },
       "reviewer": {
         "id": "reviewer",
-        "name": "Siti Rahma",
-        "title": "Senior Officer"
+        "name": "Agus Purnomo",
+        "title": "VP Tata Kelola"
       },
       "approver": {
         "id": "approver",
-        "name": "Yetty Endarwati",
-        "title": "SVP Digitalisasi & Data Science"
+        "name": "Agung Mahendra",
+        "title": "AVP Pupuk Industri"
       },
       "penerima": {
-        "id": "recipient",
-        "name": "Dewi Lestari",
-        "unit": "Departemen Anggaran & Perbendaharaan"
+        "id": "1250016",
+        "name": "Robby Setiabudi",
+        "unit": "Direktorat Supply Chain"
       },
       "cc": [
         "Tim Digitalisasi"
@@ -1536,6 +1543,7 @@
   "templatSuratList": [
     {
       "id": "tpl-1",
+      "nomor": "IT.A.01",
       "nama": "Surat Akuntansi Keuangan",
       "unitKerja": "Semua Unit",
       "tipe": "Surat Antar Unit Kerja",
@@ -1549,14 +1557,15 @@
     },
     {
       "id": "tpl-2",
-      "nama": "Surat Eksternal Digital",
+      "nomor": "ED.A.01",
+      "nama": "Surat Eksternal",
       "unitKerja": "Semua Unit",
       "tipe": "Surat Keluar",
       "tandaTanganDigital": true,
       "stampDigital": true,
       "tujuan": "Eksternal",
       "penerima": "-",
-      "status": "Inactive",
+      "status": "Active",
       "diperbaruiTanggal": "21 Juli 2026",
       "diperbaruiOleh": "Ragil Brilyan"
     }
@@ -1844,6 +1853,64 @@
       "nik": "1210106",
       "nama": "Agung Mahendra",
       "jabatan": "AVP Pupuk Industri"
+    }
+  ],
+  "kontakEksternal": [
+    {
+      "id": "ke-01",
+      "nama": "SDM PT ABC",
+      "instansi": "PT ABC",
+      "email": "sdm@ptabc.com",
+      "nomorTelepon": "098178999178",
+      "tanggalDiperbaharui": "27/04/2026"
+    },
+    {
+      "id": "ke-02",
+      "nama": "Humas & Protokoler Kementerian BUMN",
+      "instansi": "Kementerian BUMN",
+      "email": "humas@bumn.go.id",
+      "nomorTelepon": "0213845678",
+      "tanggalDiperbaharui": "26/04/2026"
+    },
+    {
+      "id": "ke-03",
+      "nama": "Sekretariat Perusahaan PT Pertamina",
+      "instansi": "PT Pertamina (Persero)",
+      "email": "sekper@pertamina.com",
+      "nomorTelepon": "0215689123",
+      "tanggalDiperbaharui": "25/04/2026"
+    },
+    {
+      "id": "ke-04",
+      "nama": "Divisi Pengadaan PT Pupuk Kaltim",
+      "instansi": "PT Pupuk Kalimantan Timur",
+      "email": "procurement@pupukkaltim.com",
+      "nomorTelepon": "054841202",
+      "tanggalDiperbaharui": "24/04/2026"
+    },
+    {
+      "id": "ke-05",
+      "nama": "Direktorat Tata Kelola Pupuk Indonesia Utilitas",
+      "instansi": "PT Pupuk Indonesia Utilitas",
+      "email": "tatakelola@pi-utilitas.com",
+      "nomorTelepon": "0217983451",
+      "tanggalDiperbaharui": "22/04/2026"
+    },
+    {
+      "id": "ke-06",
+      "nama": "Sekretaris Direksi Rekayasa Industri",
+      "instansi": "PT Rekayasa Industri",
+      "email": "sekdir@rekayasa.co.id",
+      "nomorTelepon": "0217988700",
+      "tanggalDiperbaharui": "20/04/2026"
+    },
+    {
+      "id": "ke-07",
+      "nama": "Biro Kerjasama Antar Lembaga Kementan",
+      "instansi": "Kementerian Pertanian Republik Indonesia",
+      "email": "kerjasama@pertanian.go.id",
+      "nomorTelepon": "0217804166",
+      "tanggalDiperbaharui": "18/04/2026"
     }
   ]
 }

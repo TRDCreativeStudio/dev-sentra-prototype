@@ -225,19 +225,21 @@ const server = http.createServer((req, res) => {
           if (payload.action === 'approve') {
             if (doc.perluStempel) {
               doc.status = 'Perlu Verifikasi Stempel';
+              doc.statusSuratKeluar = 'Waiting For Stamp';
               doc.statusBadge = 'warning';
               doc.currentAssigneeRole = 'admin_stempel';
               doc.currentAssigneeName = 'Farah Nabila (Admin Stempel)';
               doc.stempelStatus = 'Menunggu Verifikasi Stempel';
               doc.timeline.push({
                 waktu: nowStr,
-                aktor: payload.actorName || 'Hendro Wijaya',
+                aktor: payload.actorName || 'Agung Mahendra',
                 peran: 'Approver',
                 aksi: 'Dokumen Disetujui (Approved)',
                 catatan: (payload.notes ? payload.notes + ' - ' : '') + 'Tanda tangan digital disahkan. Diteruskan untuk pembubuhan stempel digital kedinasan.'
               });
             } else {
               // Langsung ke Penerima atau Selesai
+              doc.statusSuratKeluar = 'Completed';
               if (doc.perluTindakLanjut) {
                 doc.status = 'Menunggu Tindak Lanjut';
                 doc.statusBadge = 'info';
@@ -260,6 +262,7 @@ const server = http.createServer((req, res) => {
           } else {
             // Tolak
             doc.status = 'Ditolak (Rejected)';
+            doc.statusSuratKeluar = 'Declined';
             doc.statusBadge = 'danger';
             doc.currentAssigneeRole = null;
             doc.currentAssigneeName = '-';
@@ -277,6 +280,10 @@ const server = http.createServer((req, res) => {
         if (subAction === 'verify-stamp') {
           const serialNo = 'PERURI-STMP-2026-' + Math.floor(10000000 + Math.random() * 90000000);
           doc.stempelStatus = 'Terverifikasi';
+          doc.isStamped = true;
+          doc.statusSuratKeluar = 'Completed';
+          doc.status = 'Disetujui / Selesai';
+          doc.statusBadge = 'success';
           doc.stempelDetail = {
             provider: 'Peruri Digital Security',
             verifikator: payload.actorName || 'Farah Nabila',
@@ -292,14 +299,10 @@ const server = http.createServer((req, res) => {
           }
 
           if (doc.perluTindakLanjut) {
-            doc.status = 'Menunggu Tindak Lanjut';
-            doc.statusBadge = 'info';
             doc.currentAssigneeRole = 'recipient';
-            doc.currentAssigneeName = doc.penerima.name;
+            doc.currentAssigneeName = (doc.penerima && doc.penerima.name) || 'Penerima';
             doc.tindakLanjutStatus = 'Menunggu Laporan Tindak Lanjut dari Penerima';
           } else {
-            doc.status = 'Selesai';
-            doc.statusBadge = 'success';
             doc.currentAssigneeRole = null;
             doc.currentAssigneeName = 'Selesai';
           }
@@ -553,6 +556,86 @@ const server = http.createServer((req, res) => {
           writeDb(db);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(db.managementGroups));
+          return;
+        }
+      }
+
+      // 13. CRUD /api/kontak-eksternal
+      if (pathname.startsWith('/api/kontak-eksternal')) {
+        const parts = pathname.split('/');
+        const idParam = parts[3];
+
+        if (!db.kontakEksternal) {
+          db.kontakEksternal = [];
+        }
+
+        if (method === 'GET') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(db.kontakEksternal));
+          return;
+        }
+
+        if (method === 'POST') {
+          const now = new Date();
+          const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+          const newContact = {
+            id: payload.id || ('ke-' + Date.now().toString().slice(-6)),
+            nama: payload.nama || '',
+            instansi: payload.instansi || '',
+            email: payload.email || '',
+            nomorTelepon: payload.nomorTelepon || payload.telepon || '',
+            tanggalDiperbaharui: payload.tanggalDiperbaharui || dateStr
+          };
+          // Check if contact already exists by email or nama+instansi
+          const existingIdx = db.kontakEksternal.findIndex(k => 
+            (payload.email && k.email && k.email.toLowerCase() === payload.email.toLowerCase()) ||
+            (payload.nama && k.nama && k.nama.toLowerCase() === payload.nama.toLowerCase() && k.instansi?.toLowerCase() === payload.instansi?.toLowerCase())
+          );
+          if (existingIdx !== -1) {
+            db.kontakEksternal[existingIdx] = {
+              ...db.kontakEksternal[existingIdx],
+              ...newContact,
+              id: db.kontakEksternal[existingIdx].id
+            };
+            writeDb(db);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(db.kontakEksternal[existingIdx]));
+          } else {
+            db.kontakEksternal.unshift(newContact);
+            writeDb(db);
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(newContact));
+          }
+          return;
+        }
+
+        if (method === 'PUT') {
+          const targetId = idParam || payload.id;
+          const idx = db.kontakEksternal.findIndex(k => k.id === targetId);
+          if (idx !== -1) {
+            const now = new Date();
+            const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+            db.kontakEksternal[idx] = {
+              ...db.kontakEksternal[idx],
+              ...payload,
+              tanggalDiperbaharui: dateStr
+            };
+            writeDb(db);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(db.kontakEksternal[idx]));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Kontak Eksternal not found' }));
+          }
+          return;
+        }
+
+        if (method === 'DELETE') {
+          const targetId = idParam || payload.id;
+          db.kontakEksternal = db.kontakEksternal.filter(k => k.id !== targetId);
+          writeDb(db);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
           return;
         }
       }
