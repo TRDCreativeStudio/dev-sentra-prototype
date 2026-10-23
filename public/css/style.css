@@ -3883,6 +3883,14 @@ body.sidebar-collapsed .template-bottom-bar {
   background: #0BA5EC;
 }
 
+.log-dot-purple {
+  background: #7F56D9;
+}
+
+.log-dot-red {
+  background: #F04438;
+}
+
 .log-dot-gray {
   background: #CBD5E1;
 }
@@ -3930,9 +3938,20 @@ body.sidebar-collapsed .template-bottom-bar {
   color: #00AD78;
 }
 
+.log-badge-stamp {
+  background: #F9F5FF;
+  color: #6941C6;
+  border: 1px solid #E9D7FE;
+}
+
 .log-badge-waiting {
   background: #E0F2FE;
   color: #0284C7;
+}
+
+.log-badge-declined {
+  background: #FEF3F2;
+  color: #B42318;
 }
 
 .log-badge-draft {
@@ -4484,18 +4503,18 @@ body.sidebar-collapsed .create-surat-fixed-bottom-bar {
 }
 
 .metric-prov-card.teal {
-  background: #F0FDF9;
-  border-color: #CCFBEF;
+  background: #E6F8F6;
+  border-color: #BCEFE7;
 }
 
 .metric-prov-card.blue {
-  background: #F0F9FF;
-  border-color: #E0F2FE;
+  background: #EBF8FE;
+  border-color: #BAE6FD;
 }
 
 .metric-prov-card.peach {
-  background: #FFFAF0;
-  border-color: #FEF08A;
+  background: #FFF7ED;
+  border-color: #FED7AA;
 }
 
 .metric-prov-title {
@@ -5530,5 +5549,137 @@ body.sidebar-collapsed .create-surat-fixed-bottom-bar {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* ========================================================
+   PERURI THIRD-PARTY INTEGRATION MODAL & PROGRESS STYLES
+   ======================================================== */
+.peruri-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #E2E8F0;
+  border-top-color: #00AD78;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+.peruri-spinner-ca {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #E0EAFF;
+  border-top-color: #3538CD;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+.peruri-spinner-seal {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #FCE7F6;
+  border-top-color: #C11574;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+.peruri-spinner-sm {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #E0EAFF;
+  border-top-color: #3538CD;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.badge-sk-peruri-signing {
+  background: #EEF4FF;
+  color: #3538CD;
+  border: 1px solid #C7D7FE;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.badge-sk-peruri-sealing {
+  background: #FDF2FA;
+  color: #C11574;
+  border: 1px solid #FCCEEE;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.peruri-stepper-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.peruri-stepper-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 14px;
+  bottom: 0;
+  width: 2px;
+  background: #E2E8F0;
+}
+
+.peruri-stepper-item.done:not(:last-child)::after {
+  background: #00AD78;
+}
+
+.peruri-stepper-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 1;
+}
+
+.peruri-stepper-icon.done {
+  background: #00AD78;
+  color: #FFFFFF;
+}
+
+.peruri-stepper-icon.active {
+  background: #EEF4FF;
+  border: 2px solid #3538CD;
+  color: #3538CD;
+}
+
+.peruri-stepper-icon.pending {
+  background: #F1F5F9;
+  border: 1.5px solid #CBD5E1;
+  color: #94A3B8;
+}
+
+.peruri-terminal-box {
+  background: #0F172A;
+  color: #38BDF8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 12px 14px;
+  line-height: 1.6;
+  max-height: 140px;
+  overflow-y: auto;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
 
 

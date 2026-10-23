@@ -223,6 +223,26 @@ const INITIAL_SENTRA_DATA = {
           "aksi": "Approve Telaah Surat Eksternal",
           "catatan": "Telaah naskah dinas eksternal disetujui, diteruskan ke Pejabat Approver (Yetty Endarwati) untuk verifikasi persetujuan OTP."
         }
+      ],
+      "logActivity": [
+        {
+          "waktu": "27 Apr 2026, 14.20",
+          "status": "Waiting for Approval",
+          "judul": "Reviewer menyetujui telaah surat dan meneruskan ke Approver",
+          "oleh": "Siti Rahma - Senior Officer Rantai Pasok"
+        },
+        {
+          "waktu": "27 Apr 2026, 09.15",
+          "status": "Waiting for Review",
+          "judul": "Drafter mengirim pengajuan surat eksternal ke Reviewer",
+          "oleh": "Muhammad Ridha Fadli - Jr Technician Digitalisasi Corp Services"
+        },
+        {
+          "waktu": "27 Apr 2026, 08.45",
+          "status": "Draft",
+          "judul": "Surat eksternal baru dibuat dan disimpan sebagai draft",
+          "oleh": "Muhammad Ridha Fadli - Jr Technician Digitalisasi Corp Services"
+        }
       ]
     },
     {

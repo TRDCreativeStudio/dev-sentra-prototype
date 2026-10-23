@@ -232,10 +232,18 @@ const server = http.createServer((req, res) => {
               doc.stempelStatus = 'Menunggu Verifikasi Stempel';
               doc.timeline.push({
                 waktu: nowStr,
-                aktor: payload.actorName || 'Agung Mahendra',
+                aktor: payload.actorName || 'Yetty Endarwati',
                 peran: 'Approver',
                 aksi: 'Dokumen Disetujui (Approved)',
                 catatan: (payload.notes ? payload.notes + ' - ' : '') + 'Tanda tangan digital disahkan. Diteruskan untuk pembubuhan stempel digital kedinasan.'
+              });
+              if (!doc.logActivity) doc.logActivity = [];
+              doc.logActivity = doc.logActivity.filter(a => a.status !== 'Waiting for Stamp');
+              doc.logActivity.unshift({
+                waktu: nowStr.replace(' WIB', ''),
+                status: 'Waiting for Stamp',
+                judul: 'Approver menyetujui surat melalui Verifikasi Kode OTP (616819) dan tanda tangan digital disahkan',
+                oleh: `${payload.actorName || 'Yetty Endarwati'} - SVP Digitalisasi & Data Science`
               });
             } else {
               // Langsung ke Penerima atau Selesai
@@ -276,8 +284,89 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        // 5. Admin Stempel Verification Action
-        if (subAction === 'verify-stamp') {
+        // 4B. Peruri Third Party Signing In-Progress
+        if (subAction === 'peruri-signing') {
+          doc.status = 'Menunggu TTD Digital (Peruri)';
+          doc.statusSuratKeluar = 'Signing by Peruri CA';
+          doc.statusBadge = 'primary';
+          doc.currentAssigneeRole = 'peruri_ca';
+          doc.currentAssigneeName = 'Peruri Certification Authority (CA)';
+          doc.roleSuratKeluar = 'Peruri CA';
+          doc.timeline.push({
+            waktu: nowStr,
+            aktor: payload.actorName || 'Yetty Endarwati',
+            peran: 'Approver',
+            aksi: 'Verifikasi OTP Sukses & Kirim ke Peruri',
+            catatan: 'Kode OTP keamanan (616819) valid. Dokumen dikirimkan ke Third-Party Peruri CA untuk enkripsi & penerbitan Tanda Tangan Digital Pejabat.'
+          });
+          if (!doc.logActivity) doc.logActivity = [];
+          doc.logActivity.unshift({
+            waktu: nowStr.replace(' WIB', ''),
+            status: 'Signing by Peruri CA',
+            judul: 'Dokumen dikirim ke Peruri CA untuk penerbitan tanda tangan digital bersertifikat',
+            oleh: `${payload.actorName || 'Yetty Endarwati'} - SVP Digitalisasi & Data Science`
+          });
+        }
+
+        // 4C. Peruri Third Party Signing Completed -> Returns to SENTRA Admin Stempel
+        if (subAction === 'peruri-sign-complete') {
+          const dsSerial = 'PERURI-DS-2026-' + Math.floor(1000000 + Math.random() * 9000000);
+          doc.status = 'Perlu Verifikasi Stempel';
+          doc.statusSuratKeluar = 'Waiting For Stamp';
+          doc.statusBadge = 'warning';
+          doc.currentAssigneeRole = 'admin_stempel';
+          doc.currentAssigneeName = 'Farah Nabila';
+          doc.roleSuratKeluar = 'Admin Stempel';
+          doc.stempelStatus = 'Menunggu Verifikasi Stempel';
+          doc.ttdDigitalDetail = {
+            provider: 'Peruri Digital Security (CA)',
+            serialNumber: dsSerial,
+            signer: payload.actorName || 'Yetty Endarwati',
+            waktuVerifikasi: nowStr,
+            status: 'Valid (CA-Certified)'
+          };
+          doc.timeline.push({
+            waktu: nowStr,
+            aktor: 'Peruri CA Engine',
+            peran: 'Third-Party Service',
+            aksi: 'Tanda Tangan Digital Diterbitkan',
+            catatan: `Peruri CA berhasil menerbitkan tanda tangan digital bersertifikat (SN: ${dsSerial}). Dokumen dikembalikan ke SENTRA dan diteruskan ke Admin Stempel (Farah Nabila).`
+          });
+          if (!doc.logActivity) doc.logActivity = [];
+          doc.logActivity.unshift({
+            waktu: nowStr.replace(' WIB', ''),
+            status: 'Waiting for Stamp',
+            judul: `Peruri CA menerbitkan Tanda Tangan Digital (${dsSerial}) & dialihkan ke Admin Stempel`,
+            oleh: 'Peruri CA System & Farah Nabila'
+          });
+        }
+
+        // 5B. Peruri Third Party Sealing/Stamping In-Progress
+        if (subAction === 'peruri-sealing') {
+          doc.status = 'Proses Stempel di Peruri';
+          doc.statusSuratKeluar = 'Sealing by Peruri CA';
+          doc.statusBadge = 'primary';
+          doc.currentAssigneeRole = 'peruri_ca';
+          doc.currentAssigneeName = 'Peruri Electronic Seal (e-Seal)';
+          doc.roleSuratKeluar = 'Peruri CA';
+          doc.timeline.push({
+            waktu: nowStr,
+            aktor: payload.actorName || 'Farah Nabila',
+            peran: 'Admin Stempel',
+            aksi: 'Verifikasi Naskah & Ajukan Stempel ke Peruri',
+            catatan: 'Admin Stempel memverifikasi naskah dan mengirimkan permintaan pembubuhan segel stempel kedinasan (e-Seal) ke Peruri.'
+          });
+          if (!doc.logActivity) doc.logActivity = [];
+          doc.logActivity.unshift({
+            waktu: nowStr.replace(' WIB', ''),
+            status: 'Sealing by Peruri CA',
+            judul: 'Naskah dikirim ke Peruri e-Seal Service untuk pembubuhan stempel resmi kedinasan',
+            oleh: `${payload.actorName || 'Farah Nabila'} - Admin Stempel Biro Umum`
+          });
+        }
+
+        // 5. Admin Stempel Verification Action (Peruri Seal Completed)
+        if (subAction === 'verify-stamp' || subAction === 'peruri-seal-complete') {
           const serialNo = 'PERURI-STMP-2026-' + Math.floor(10000000 + Math.random() * 90000000);
           doc.stempelStatus = 'Terverifikasi';
           doc.isStamped = true;
@@ -313,6 +402,14 @@ const server = http.createServer((req, res) => {
             peran: 'Admin Stempel',
             aksi: 'Verifikasi Stempel Digital Berhasil',
             catatan: `Stempel kedinasan resmi dibubuhkan melalui Peruri Digital Security. SN: ${serialNo}. Kuota stempel terpakai terpotong 1.`
+          });
+          if (!doc.logActivity) doc.logActivity = [];
+          doc.logActivity = doc.logActivity.filter(a => a.status !== 'Completed');
+          doc.logActivity.unshift({
+            waktu: nowStr.replace(' WIB', ''),
+            status: 'Completed',
+            judul: 'Stempel kedinasan resmi dibubuhkan melalui Peruri Digital Security CA',
+            oleh: `${payload.actorName || 'Farah Nabila'} - Admin Stempel Biro Umum`
           });
         }
 
@@ -367,7 +464,31 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      // 8. POST /api/reset (Reset prototype data)
+      // 8. POST /api/documents/reset-external-demo
+      if (pathname === '/api/documents/reset-external-demo' && method === 'POST') {
+        const extDoc = db.documents && db.documents.find(d => d.id === 'doc-ext-01');
+        if (extDoc) {
+          extDoc.status = 'Menunggu Approval';
+          extDoc.statusSuratKeluar = 'Waiting For Approval';
+          extDoc.statusBadge = 'warning';
+          extDoc.role = 'Approval';
+          extDoc.roleSuratKeluar = 'Approval';
+          extDoc.diperbaharuiTanggal = 'Selasa, 27 April 2026, 14:20';
+          extDoc.diperbaharuiOleh = 'Siti Rahma';
+          extDoc.currentAssigneeRole = 'approver';
+          extDoc.currentAssigneeName = 'Yetty Endarwati (Approver)';
+          extDoc.isStamped = false;
+          extDoc.stempelStatus = 'Menunggu Verifikasi Stempel';
+          extDoc.stempelDetail = null;
+          extDoc.ttdDigitalDetail = null;
+          writeDb(db);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, doc: extDoc }));
+        return;
+      }
+
+      // 9. POST /api/reset (Reset prototype data)
       if (pathname === '/api/reset' && method === 'POST') {
         // Re-read initial or restore
         res.writeHead(200, { 'Content-Type': 'application/json' });
