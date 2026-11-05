@@ -281,8 +281,8 @@ const INITIAL_SENTRA_DATA = {
       },
       "approver": {
         "id": "approver",
-        "name": "Yetty Endarwati",
-        "title": "SVP Digitalisasi & Data Science"
+        "name": "Agung Mahendra",
+        "title": "AVP Pupuk Industri"
       },
       "penerima": {
         "id": "recipient",

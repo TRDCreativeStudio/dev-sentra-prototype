@@ -5681,5 +5681,220 @@ body.sidebar-collapsed .create-surat-fixed-bottom-bar {
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
 }
 
+/* Figma OTP Stepper Workflow Modal */
+.figma-otp-modal-card {
+  max-width: 490px;
+  width: 100%;
+  padding: 28px 28px 24px 28px;
+  border-radius: 16px;
+  background: #FFFFFF;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  font-family: inherit;
+}
+
+.figma-otp-modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #101828;
+  margin: 0 0 22px 0;
+  letter-spacing: -0.01em;
+}
+
+.figma-otp-info-card {
+  background: #F9FAFB;
+  border: 1px solid #EAECF0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
+}
+
+.figma-otp-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.figma-otp-info-label {
+  font-size: 13.5px;
+  color: #667085;
+  font-weight: 400;
+}
+
+.figma-otp-info-value {
+  font-size: 14.5px;
+  color: #101828;
+  font-weight: 700;
+}
+
+.figma-otp-step-item {
+  display: flex;
+  gap: 14px;
+  position: relative;
+}
+
+.figma-otp-step-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 14px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.figma-otp-step-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #D0D5DD;
+  margin-top: 3px;
+  z-index: 2;
+  transition: background 0.4s ease;
+}
+
+.figma-otp-step-dot.done {
+  background: #12B76A !important;
+}
+
+.figma-otp-step-line {
+  position: absolute;
+  top: 15px;
+  bottom: -6px;
+  width: 2px;
+  background: #EAECF0;
+  z-index: 1;
+}
+
+.figma-otp-step-right {
+  flex: 1;
+  padding-bottom: 18px;
+}
+
+.figma-otp-step-time {
+  font-size: 13px;
+  color: #667085;
+  line-height: 18px;
+}
+
+.figma-otp-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+  margin: 3px 0 2px 0;
+}
+
+.figma-otp-step-author {
+  font-size: 13.5px;
+  color: #475467;
+}
+
+.figma-otp-step-divider {
+  border-bottom: 1px dashed #EAECF0;
+  margin-top: 16px;
+}
+
+.figma-otp-close-btn {
+  padding: 9px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FFFFFF;
+  border: 1px solid #D0D5DD;
+  border-radius: 8px;
+  color: #344054;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  transition: all 0.15s ease;
+}
+
+.figma-otp-close-btn:hover {
+  background: #F9FAFB;
+  border-color: #98A2B3;
+  color: #1D2939;
+}
+
+/* Surat Masuk Eksternal (Admin Penerima Dokumen) */
+.sme-form-group {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.sme-form-label {
+  position: absolute;
+  top: -9px;
+  left: 12px;
+  background: #FFFFFF;
+  padding: 0 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #344054;
+  z-index: 2;
+}
+
+.sme-form-input, .sme-form-select {
+  width: 100%;
+  height: 44px;
+  border: 1px solid #D0D5DD;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: #101828;
+  background: #FFFFFF;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sme-form-input:focus, .sme-form-select:focus {
+  border-color: #00AD78;
+  box-shadow: 0 0 0 3px rgba(0, 173, 120, 0.15);
+}
+
+.sme-form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+}
+
+.sme-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sme-table th {
+  background: #F9FAFB;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475467;
+  text-align: left;
+  border-bottom: 1px solid #EAECF0;
+  white-space: nowrap;
+}
+
+.sme-table td {
+  padding: 14px 16px;
+  font-size: 13.5px;
+  color: #101828;
+  border-bottom: 1px solid #EAECF0;
+  vertical-align: middle;
+}
+
+.sme-table.dense th {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.sme-table.dense td {
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+
+.sme-table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+
+
 
 

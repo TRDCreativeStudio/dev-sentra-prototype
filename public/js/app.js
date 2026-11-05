@@ -728,7 +728,7 @@ function canAccessPage(pageKey, roleId) {
   if (adminPages.includes(pageKey)) {
     return roleId === 'admin_dof';
   }
-  if (['registrasi-surat', 'registrasi-surat-masuk', 'antrean-surat-masuk', 'daftar-surat-masuk', 'form-registrasi-surat', 'registrasi-surat-create'].includes(pageKey)) {
+  if (['registrasi-surat', 'registrasi-surat-masuk', 'antrean-surat-masuk', 'daftar-surat-masuk', 'form-registrasi-surat', 'registrasi-surat-create', 'surat-masuk-eksternal', 'daftar-surat-masuk-eksternal', 'buat-surat-masuk-eksternal'].includes(pageKey)) {
     return roleId === 'admin_penerima' || roleId === 'admin_dof' || roleId === 'users';
   }
   return true;
@@ -913,8 +913,14 @@ function renderSidebar() {
   const perms = getUserPermissions(roleId);
   const isSuratMasukActive = ['surat-masuk', 'pesan-masuk', 'detail-surat-masuk'].includes(appState.currentPage);
   const isSuratKeluarActive = ['surat-keluar', 'daftar-surat', 'buat-surat-baru', 'detail-surat-keluar'].includes(appState.currentPage);
-  const isRegSuratMasukActive = ['registrasi-surat-masuk', 'registrasi-surat', 'form-registrasi-surat', 'registrasi-surat-create'].includes(appState.currentPage);
-  const isDaftarSuratMasukActive = ['daftar-surat-masuk'].includes(appState.currentPage);
+  const isSuratMasukEksternalActive = [
+    'surat-masuk-eksternal', 
+    'daftar-surat-masuk-eksternal', 
+    'registrasi-surat-masuk', 
+    'buat-surat-masuk-eksternal', 
+    'form-registrasi-surat', 
+    'daftar-surat-masuk'
+  ].includes(appState.currentPage);
 
   const navContainer = document.getElementById('sidebar-nav-container');
   if (!navContainer) return;
@@ -933,7 +939,7 @@ function renderSidebar() {
       </ul>
     </div>
 
-    <!-- SERVICES (Surat Masuk & Surat Keluar untuk SEMUA Role, termasuk Admin Penerima Dokumen) -->
+    <!-- SERVICES (Surat Masuk, Surat Keluar & Surat Masuk Eksternal) -->
     <div>
       <div class="nav-group-title">SERVICES</div>
       <ul class="nav-list">
@@ -949,34 +955,16 @@ function renderSidebar() {
             <span>Surat Keluar</span>
           </a>
         </li>
+        ${(roleId === 'admin_penerima' || roleId === 'admin_dof' || roleId === 'users') ? `
+          <li class="nav-item ${isSuratMasukEksternalActive ? 'active' : ''}">
+            <a href="#" onclick="navigate('surat-masuk-eksternal'); return false;">
+              ${getIcon('inbox')}
+              <span>Surat Masuk Eksternal</span>
+            </a>
+          </li>
+        ` : ''}
       </ul>
     </div>
-
-    <!-- BAGIAN KHUSUS: REGISTRASI SURAT MASUK & DAFTAR SURAT MASUK (Admin Penerima Dokumen & Admin DOF) -->
-    ${(roleId === 'admin_penerima' || roleId === 'admin_dof') ? `
-      <div>
-        <div class="nav-group-title">REGISTRASI SURAT MASUK</div>
-        <ul class="nav-list">
-          <li class="nav-item ${isRegSuratMasukActive ? 'active' : ''}">
-            <a href="#" onclick="navigate('registrasi-surat-masuk'); return false;">
-              ${getIcon('fileText')}
-              <span>Registrasi Surat Masuk</span>
-              ${getPendingExternalDocs().length > 0 ? `
-                <span class="nav-badge" style="background: #F04438; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: auto;">
-                  ${getPendingExternalDocs().length}
-                </span>
-              ` : ''}
-            </a>
-          </li>
-          <li class="nav-item ${isDaftarSuratMasukActive ? 'active' : ''}">
-            <a href="#" onclick="navigate('daftar-surat-masuk'); return false;">
-              ${getIcon('clipboardCheck')}
-              <span>Daftar Surat Masuk</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-    ` : ''}
   `;
 
   // UTILITY & MANAGEMENT only appear for Admin DOF role
@@ -1125,8 +1113,9 @@ function navigate(pageKey) {
 // Role Switcher Handler
 function onRoleChange(newRole) {
   appState.currentRole = newRole;
-  // If current page is forbidden for new role, default to beranda
-  if (!canAccessPage(appState.currentPage, newRole)) {
+  if (newRole === 'admin_penerima') {
+    appState.currentPage = 'surat-masuk-eksternal';
+  } else if (!canAccessPage(appState.currentPage, newRole)) {
     appState.currentPage = 'beranda';
   }
   const persona = getCurrentPersona();
@@ -1189,17 +1178,17 @@ function renderApp() {
     case 'detail-kontrak-provider':
       contentArea.innerHTML = renderDetailKontrakProviderView();
       break;
-    case 'registrasi-surat-masuk':
-    case 'registrasi-surat':
-    case 'antrean-surat-masuk':
-      contentArea.innerHTML = renderRegistrasiSuratMasukView();
-      break;
+    case 'surat-masuk-eksternal':
+    case 'daftar-surat-masuk-eksternal':
     case 'daftar-surat-masuk':
-      contentArea.innerHTML = renderDaftarSuratMasukView();
+      contentArea.innerHTML = renderSuratMasukEksternalListView();
       break;
+    case 'registrasi-surat-masuk':
+    case 'buat-surat-masuk-eksternal':
     case 'form-registrasi-surat':
     case 'registrasi-surat-create':
-      contentArea.innerHTML = renderFormRegistrasiSuratMasukView();
+    case 'antrean-surat-masuk':
+      contentArea.innerHTML = renderRegistrasiSuratMasukEksternalFormView();
       break;
     case 'rbac':
       contentArea.innerHTML = renderRbacView();
@@ -3490,48 +3479,6 @@ function renderBuatSuratBaruView() {
     <!-- Scrollable Body Content -->
     <div class="create-surat-scroll-content">
 
-    ${isEksternal ? `
-      <!-- Alur Integrasi Third-Party Peruri Pipeline Banner -->
-      <div style="background: #FFFFFF; border: 1.5px solid #C7D7FE; border-radius: 10px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(53, 56, 205, 0.04); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <div style="width: 38px; height: 38px; border-radius: 10px; background: #EEF4FF; border: 1px solid #C7D7FE; color: #3538CD; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">
-            P
-          </div>
-          <div>
-            <div style="font-size: 13.5px; font-weight: 700; color: #1E293B; display: flex; align-items: center; gap: 8px;">
-              <span>Alur Naskah Eksternal &bull; Integrasi Peruri CA & e-Seal</span>
-              <span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: #EEF4FF; color: #3538CD;">Live Prototype</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 4px; flex-wrap: wrap;">
-              <span style="color: ${doc?.status === 'Menunggu Approval' ? '#D97706; font-weight: 700;' : '#027A48;'}">
-                1. Approver OTP ${doc?.status !== 'Menunggu Approval' && doc?.status !== 'Draft' && !doc?.status?.includes('Review') ? '✓' : ''}
-              </span>
-              <span style="color: #94A3B8;">&rarr;</span>
-              <span style="color: ${doc?.status === 'Menunggu TTD Digital (Peruri)' ? '#3538CD; font-weight: 700;' : (doc?.ttdDigitalDetail ? '#027A48;' : '#94A3B8;')}">
-                2. Peruri CA (TTD Digital) ${doc?.ttdDigitalDetail ? '✓' : ''}
-              </span>
-              <span style="color: #94A3B8;">&rarr;</span>
-              <span style="color: ${doc?.status === 'Perlu Verifikasi Stempel' ? '#B54708; font-weight: 700;' : (doc?.isStamped ? '#027A48;' : '#94A3B8;')}">
-                3. Admin Stempel Verifikasi ${doc?.isStamped ? '✓' : ''}
-              </span>
-              <span style="color: #94A3B8;">&rarr;</span>
-              <span style="color: ${doc?.status === 'Proses Stempel di Peruri' ? '#C11574; font-weight: 700;' : (doc?.isStamped ? '#027A48;' : '#94A3B8;')}">
-                4. Peruri e-Seal (Stempel) ${doc?.isStamped ? '✓' : ''}
-              </span>
-              <span style="color: #94A3B8;">&rarr;</span>
-              <span style="color: ${doc?.status === 'Disetujui / Selesai' || doc?.statusSuratKeluar === 'Completed' ? '#027A48; font-weight: 700;' : '#94A3B8;'}">
-                5. Kirim ke Pengirim/Penerima ${doc?.statusSuratKeluar === 'Completed' ? '✓' : ''}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <button type="button" onclick="resetExternalDemo(event)" title="Reset Alur Demo Surat Eksternal ke Tahap Approver (Yetty Endarwati)" style="padding: 7px 14px; font-size: 12px; font-weight: 600; background: #FFF4ED; border: 1px solid #FED7AA; border-radius: 8px; color: #EA580C; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-          ⚡ Reset Demo (Approver OTP)
-        </button>
-      </div>
-    ` : ''}
-
     <!-- Collapsible Accordion: Informasi Surat & Penerima/Approval (Exact Match) -->
     <div class="card" style="padding: 0; border: 1px solid #E2E8F0; border-radius: 8px; background: #FFFFFF; margin-bottom: 24px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
       <!-- Accordion Header Bar -->
@@ -3577,13 +3524,6 @@ function renderBuatSuratBaruView() {
                   <option value="Format Standar Nota Dinas Pupuk Indonesia" ${templatVal.includes('Nota Dinas') ? 'selected' : ''}>Format Standar Nota Dinas Pupuk Indonesia</option>
                   <option value="Surat Keputusan Direksi" ${templatVal.includes('Direksi') ? 'selected' : ''}>Surat Keputusan Direksi</option>
                 </select>
-
-                ${isEksternal ? `
-                  <div style="background: #EFF8FF; border: 1px solid #B2DDFF; border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 12px; color: #175CD3; display: flex; align-items: flex-start; gap: 8px; line-height: 1.45;">
-                    <span style="font-size: 14px; line-height: 1;">ℹ️</span>
-                    <span>Templat <strong>Surat Eksternal</strong> aktif. Tujuan surat dialihkan ke <strong>Kontak Eksternal</strong> pada panel kanan, dan alur persetujuan memerlukan verifikasi OTP Approver serta stempel digital resmi.</span>
-                  </div>
-                ` : ''}
               </div>
 
               <div>
@@ -4617,7 +4557,6 @@ function resendOtpCode(docId) {
 
 function submitOtpVerification(docId) {
   const btn = document.getElementById('btn-submit-otp');
-  const modalBody = document.querySelector('.modal-card');
   
   // Disable all OTP inputs
   for (let i = 0; i < 6; i++) {
@@ -4627,74 +4566,33 @@ function submitOtpVerification(docId) {
 
   if (btn) {
     btn.disabled = true;
-    btn.style.opacity = '0.7';
-    btn.style.cursor = 'not-allowed';
+    btn.style.opacity = '0.85';
+    btn.innerHTML = `
+      <span class="peruri-spinner-sm" style="border-top-color: #FFFFFF; width: 14px; height: 14px; margin-right: 8px; display: inline-block; vertical-align: middle;"></span>
+      Memverifikasi...
+    `;
   }
 
-  // Inject Step-by-Step Verification UI into OTP Modal
-  const statusContainer = document.getElementById('otp-verifying-status') || document.createElement('div');
-  statusContainer.id = 'otp-verifying-status';
-  statusContainer.style.marginTop = '20px';
-  statusContainer.style.background = '#F8FAFC';
-  statusContainer.style.border = '1px solid #E2E8F0';
-  statusContainer.style.borderRadius = '10px';
-  statusContainer.style.padding = '16px';
-  statusContainer.style.textAlign = 'center';
-
-  const otpInputsParent = document.getElementById('otp-digit-0')?.parentElement?.parentElement;
-  if (otpInputsParent && !document.getElementById('otp-verifying-status')) {
-    otpInputsParent.appendChild(statusContainer);
+  if (otpCountdownTimer) {
+    clearInterval(otpCountdownTimer);
+    otpCountdownTimer = null;
   }
 
-  // Phase 1: Validasi Kode OTP (0 - 1500ms)
-  statusContainer.innerHTML = `
-    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px;">
-      <div class="peruri-spinner-sm" style="border-top-color: #00AD78;"></div>
-      <span style="font-size: 13.5px; font-weight: 700; color: #101828;">[1/3] Memverifikasi Kode OTP (616819)...</span>
-    </div>
-    <div style="font-size: 12px; color: #64748B; margin-bottom: 12px;">Memeriksa keabsahan kode otentikasi dua langkah pejabat Approver...</div>
-    <div style="width: 100%; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden;">
-      <div style="width: 32%; height: 100%; background: #00AD78; transition: width 1.2s ease;"></div>
-    </div>
-  `;
-
-  // Phase 2: Validasi Sertifikat Digital Pejabat (1500 - 3000ms)
+  // After 1000ms verification, close OTP modal and open Figma Penerbitan TTD Digital card!
   setTimeout(() => {
-    statusContainer.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px;">
-        <div class="peruri-spinner-sm" style="border-top-color: #3538CD;"></div>
-        <span style="font-size: 13.5px; font-weight: 700; color: #1E293B;">[2/3] Validasi Kredensial Digital Pejabat (Yetty Endarwati)...</span>
-      </div>
-      <div style="font-size: 12px; color: #64748B; margin-bottom: 12px;">Mencocokkan pasangan kunci kriptografi X.509 pada basis data Peruri CA...</div>
-      <div style="width: 100%; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden;">
-        <div style="width: 68%; height: 100%; background: #3538CD; transition: width 1.2s ease;"></div>
-      </div>
-    `;
-  }, 1500);
-
-  // Phase 3: Mengirimkan Dokumen ke Peruri CA (3000 - 4400ms)
-  setTimeout(() => {
-    statusContainer.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px;">
-        <div class="peruri-spinner-sm" style="border-top-color: #3538CD;"></div>
-        <span style="font-size: 13.5px; font-weight: 700; color: #3538CD;">[3/3] Mengirimkan Dokumen ke Peruri Certification Authority (CA)...</span>
-      </div>
-      <div style="font-size: 12px; color: #64748B; margin-bottom: 12px;">Menghubungkan ke gateway Third-Party Peruri CA untuk penerbitan tanda tangan digital...</div>
-      <div style="width: 100%; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden;">
-        <div style="width: 95%; height: 100%; background: #3538CD; transition: width 1.2s ease;"></div>
-      </div>
-    `;
-  }, 3000);
-
-  // Phase 4: Selesai OTP, buka alur Third-Party Peruri Signing (~4500ms)
-  setTimeout(() => {
-    if (otpCountdownTimer) {
-      clearInterval(otpCountdownTimer);
-      otpCountdownTimer = null;
-    }
     closeModal();
     startPeruriSigningProcess(docId);
-  }, 4400);
+  }, 1000);
+}
+
+// Helper to format date matching Figma
+function formatFigmaStepDate(d = new Date()) {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${day} ${month} 2026, ${hours}.${mins}`;
 }
 
 // ========================================================
@@ -4710,7 +4608,7 @@ function startPeruriSigningProcess(docId) {
   const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
   const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
   const nowStr = `${dateFormatted} ${timeFormatted}`;
-  const approverActor = (doc.approver && doc.approver.name) || getCurrentPersona().name || 'Yetty Endarwati';
+  const approverActor = (doc.approver && doc.approver.name) || getCurrentPersona().name || 'Agung Mahendra';
 
   // Update State ke Menunggu TTD Digital di Peruri
   doc.status = 'Menunggu TTD Digital (Peruri)';
@@ -4728,7 +4626,7 @@ function startPeruriSigningProcess(docId) {
     aktor: approverActor,
     peran: 'Approver',
     aksi: 'Verifikasi OTP & Kirim ke Peruri',
-    catatan: 'Kode OTP keamanan (616819) valid. Naskah dinas resmi dikirimkan ke Third-Party Peruri CA untuk enkripsi & penerbitan Tanda Tangan Digital Pejabat.'
+    catatan: 'Kode OTP keamanan valid. Naskah dinas resmi dikirimkan ke Third-Party Peruri CA untuk enkripsi & penerbitan Tanda Tangan Digital Pejabat.'
   });
 
   if (!doc.logActivity) doc.logActivity = getDocLogActivity(doc);
@@ -4736,7 +4634,7 @@ function startPeruriSigningProcess(docId) {
     waktu: `${dateFormatted}, ${timeFormatted.slice(0, 5)}`,
     status: 'Signing by Peruri CA',
     judul: 'Naskah dikirim ke Third-Party Peruri CA untuk penerbitan tanda tangan digital bersertifikat',
-    oleh: `${approverActor} - SVP Digitalisasi & Data Science`
+    oleh: `${approverActor}`
   });
 
   saveLocalCopy(appState.data);
@@ -4760,135 +4658,136 @@ function openPeruriSigningModal(docId) {
   if (!modalContainer) return;
 
   if (peruriSigningTimer) {
-    clearInterval(peruriSigningTimer);
+    clearTimeout(peruriSigningTimer);
     peruriSigningTimer = null;
   }
 
+  const docNomor = doc?.nomorSurat || '07344/A/TI/P14/ET/2026';
+  const approverName = doc?.approver?.name || 'Agung Mahendra';
+  const stepDateStr = (doc?.id === 'doc-01') ? '19 Mei 2026, 21.34' : formatFigmaStepDate(new Date());
+
+  const isAlreadySigned = doc?.status === 'Perlu Verifikasi Stempel' ||
+                          doc?.status === 'Proses Stempel di Peruri' ||
+                          doc?.status === 'Disetujui / Selesai' ||
+                          doc?.statusSuratKeluar === 'Waiting For Stamp' ||
+                          doc?.statusSuratKeluar === 'Completed';
+
   modalContainer.innerHTML = `
     <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
-      <div class="modal-card" style="max-width: 580px; width: 100%; padding: 28px 32px; border-radius: 14px; background: #FFFFFF; box-shadow: 0 25px 35px -5px rgba(0, 0, 0, 0.15);">
+      <div class="modal-card figma-otp-modal-card">
         
-        <!-- Header Peruri CA Branding -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #EAECF0; padding-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 44px; height: 44px; border-radius: 10px; background: #EEF4FF; border: 1.5px solid #C7D7FE; display: flex; align-items: center; justify-content: center; color: #3538CD; font-weight: 800; font-size: 18px; flex-shrink: 0;">
-              P
-            </div>
-            <div>
-              <div style="font-size: 11px; font-weight: 700; color: #3538CD; letter-spacing: 0.8px; text-transform: uppercase;">Third-Party Integration &bull; Peruri CA</div>
-              <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 2px 0 0 0;">Penerbitan Tanda Tangan Digital</h3>
-            </div>
-          </div>
-          <span class="badge-sk-peruri-signing" style="animation: pulse 1.8s infinite;">Sedang Diproses</span>
-        </div>
+        <!-- Header: Title only matching Figma -->
+        <h2 class="figma-otp-modal-title">Penerbitan Tanda Tangan Digital</h2>
 
-        <!-- Document Reference -->
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12.5px; color: #334155;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-            <span style="color: #64748B;">Nomor Surat:</span>
-            <strong style="font-family: monospace;">${escapeHtml(doc?.nomorSurat || '00421/B/UM/P14/EXT/2026')}</strong>
+        <!-- Info Card: Nomor Surat & Approver -->
+        <div class="figma-otp-info-card">
+          <div class="figma-otp-info-row" style="margin-bottom: 12px;">
+            <span class="figma-otp-info-label">Nomor Surat</span>
+            <span class="figma-otp-info-value">${escapeHtml(docNomor)}</span>
           </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: #64748B;">Pejabat Penandatangan:</span>
-            <strong>Yetty Endarwati (SVP Digitalisasi & Data Science)</strong>
+          <div class="figma-otp-info-row">
+            <span class="figma-otp-info-label">Approver</span>
+            <span class="figma-otp-info-value">${escapeHtml(approverName)}</span>
           </div>
         </div>
 
-        <!-- Stepper Workflow -->
-        <div style="margin-bottom: 20px;">
-          <div class="peruri-stepper-item done">
-            <div class="peruri-stepper-icon done">✓</div>
-            <div>
-              <div style="font-size: 13px; font-weight: 700; color: #027A48;">1. Verifikasi OTP Approver Berhasil</div>
-              <div style="font-size: 12px; color: #475467;">Otentikasi dua langkah (OTP: 616819) disahkan oleh Pejabat Approver.</div>
+        <!-- Stepper Workflow (3 items matching Figma design) -->
+        <div style="position: relative; margin-bottom: 24px;">
+
+          <!-- Step 1: Verifikasi OTP Approver Berhasil -->
+          <div class="figma-otp-step-item">
+            <div class="figma-otp-step-left">
+              <div id="figma-step-dot-1" class="figma-otp-step-dot done"></div>
+              <div class="figma-otp-step-line"></div>
+            </div>
+            <div class="figma-otp-step-right">
+              <div id="figma-step-time-1" class="figma-otp-step-time">${stepDateStr}</div>
+              <div class="figma-otp-step-title">Verifikasi OTP Approver Berhasil</div>
+              <div class="figma-otp-step-author">Oleh: ${escapeHtml(approverName)}</div>
+              <div class="figma-otp-step-divider"></div>
             </div>
           </div>
 
-          <div class="peruri-stepper-item" id="peruri-step-2">
-            <div class="peruri-stepper-icon active" id="peruri-icon-2">
-              <div class="peruri-spinner-sm" style="width: 14px; height: 14px;"></div>
+          <!-- Step 2: Tanda Tangan Digital Berhasil Diterbitkan oleh Peruri -->
+          <div class="figma-otp-step-item">
+            <div class="figma-otp-step-left">
+              <div id="figma-step-dot-2" class="figma-otp-step-dot ${isAlreadySigned ? 'done' : ''}"></div>
+              <div class="figma-otp-step-line"></div>
             </div>
-            <div>
-              <div style="font-size: 13px; font-weight: 700; color: #3538CD;" id="peruri-title-2">2. Penerbitan Tanda Tangan Digital di Peruri CA (Sedang Berjalan...)</div>
-              <div style="font-size: 12px; color: #475467;" id="peruri-desc-2">Mengenkripsi hash dokumen, menyematkan Time-Stamping Authority (TSA), dan menerbitkan sertifikat elektronik X.509.</div>
+            <div class="figma-otp-step-right">
+              <div id="figma-step-time-2" class="figma-otp-step-time">${isAlreadySigned ? stepDateStr : '-'}</div>
+              <div class="figma-otp-step-title">Tanda Tangan Digital Berhasil Diterbitkan oleh Peruri</div>
+              <div class="figma-otp-step-author">Oleh: System</div>
+              <div class="figma-otp-step-divider"></div>
             </div>
           </div>
 
-          <div class="peruri-stepper-item" id="peruri-step-3" style="padding-bottom: 0;">
-            <div class="peruri-stepper-icon pending" id="peruri-icon-3">3</div>
-            <div>
-              <div style="font-size: 13px; font-weight: 600; color: #94A3B8;" id="peruri-title-3">3. Pengembalian ke SENTRA & Dialihkan ke Admin Stempel</div>
-              <div style="font-size: 12px; color: #94A3B8;" id="peruri-desc-3">Naskah bertanda tangan digital resmi diteruskan ke Admin Stempel (Farah Nabila).</div>
+          <!-- Step 3: Dokumen Dikembalikan ke SENTRA -->
+          <div class="figma-otp-step-item">
+            <div class="figma-otp-step-left">
+              <div id="figma-step-dot-3" class="figma-otp-step-dot ${isAlreadySigned ? 'done' : ''}"></div>
+            </div>
+            <div class="figma-otp-step-right" style="padding-bottom: 4px;">
+              <div id="figma-step-time-3" class="figma-otp-step-time">${isAlreadySigned ? stepDateStr : '-'}</div>
+              <div class="figma-otp-step-title">Dokumen Dikembalikan ke SENTRA</div>
+              <div class="figma-otp-step-author">Oleh: System</div>
+              <div class="figma-otp-step-divider"></div>
             </div>
           </div>
+
         </div>
 
-        <!-- Live Terminal Logs -->
-        <div class="peruri-terminal-box" id="peruri-terminal-logs" style="margin-bottom: 20px;">
-          <div>[1/3] Menghubungi endpoint https://ca.peruri.co.id/api/v2/sign-hash...</div>
-          <div style="color: #A7F3D0;">[2/3] Status: 200 OK - Handshake terverifikasi dengan sertifikat X.509 Pejabat.</div>
-          <div style="color: #FDE047;">[3/3] Sedang menyematkan cryptographic signature dan Time-Stamp Token (TSA)...</div>
-        </div>
-
-        <!-- Progress Bar & Actions -->
-        <div id="peruri-modal-footer-area">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; color: #475467;">
-            <span>Estimasi proses Peruri CA: <strong id="peruri-countdown-num">5 detik</strong></span>
-            <span id="peruri-progress-percent" style="font-weight: 700; color: #3538CD;">45%</span>
-          </div>
-          <div style="width: 100%; height: 7px; background: #EAECF0; border-radius: 4px; overflow: hidden; margin-bottom: 18px;">
-            <div id="peruri-progress-bar-el" style="width: 45%; height: 100%; background: #3538CD; transition: width 0.6s ease;"></div>
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
-            <button type="button" class="btn" onclick="closeModal()" style="padding: 9px 18px; font-size: 13px; font-weight: 600; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
-              Pantau di Latar Belakang
-            </button>
-            <button type="button" class="btn" onclick="completePeruriSigning('${docId}')" style="padding: 9px 20px; font-size: 13px; font-weight: 600; background: #3538CD; border: none; border-radius: 8px; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-              ⚡ Selesaikan TTD Peruri Sekarang
-            </button>
-          </div>
+        <!-- Footer Actions matching Figma: Close button only -->
+        <div style="display: flex; justify-content: flex-end; align-items: center;">
+          <button type="button" class="figma-otp-close-btn" onclick="closePeruriSigningModal('${docId}')">
+            Close
+          </button>
         </div>
 
       </div>
     </div>
   `;
 
-  // Animate Progress Bar over 5 seconds
-  let elapsed = 0;
-  const total = 5000;
-  peruriSigningTimer = setInterval(() => {
-    elapsed += 500;
-    const pct = Math.min(Math.round((elapsed / total) * 100), 100);
-    const progressBar = document.getElementById('peruri-progress-bar-el');
-    const progressPercent = document.getElementById('peruri-progress-percent');
-    const countdownNum = document.getElementById('peruri-countdown-num');
-    const terminalLogs = document.getElementById('peruri-terminal-logs');
+  // If not already signed, run live progression
+  if (!isAlreadySigned) {
+    // Step 2 completes at 2.2s
+    setTimeout(() => {
+      const dot2 = document.getElementById('figma-step-dot-2');
+      const time2 = document.getElementById('figma-step-time-2');
+      if (dot2) dot2.classList.add('done');
+      if (time2) time2.textContent = stepDateStr;
+    }, 2200);
 
-    if (progressBar) progressBar.style.width = `${pct}%`;
-    if (progressPercent) progressPercent.textContent = `${pct}%`;
-    if (countdownNum) countdownNum.textContent = `${Math.max(1, Math.ceil((total - elapsed) / 1000))} detik`;
+    // Step 3 completes at 4.2s
+    peruriSigningTimer = setTimeout(() => {
+      const dot3 = document.getElementById('figma-step-dot-3');
+      const time3 = document.getElementById('figma-step-time-3');
+      if (dot3) dot3.classList.add('done');
+      if (time3) time3.textContent = stepDateStr;
 
-    if (elapsed === 2000 && terminalLogs) {
-      terminalLogs.innerHTML += `<div>> Verifikasi identitas pejabat: Yetty Endarwati (SVP Digitalisasi) VALID.</div>`;
-      terminalLogs.scrollTop = terminalLogs.scrollHeight;
-    }
-    if (elapsed === 3500 && terminalLogs) {
-      terminalLogs.innerHTML += `<div style="color: #6EE7B7;">> Sertifikat digital X.509 berhasil diterbitkan oleh Peruri CA.</div>`;
-      terminalLogs.scrollTop = terminalLogs.scrollHeight;
-    }
-
-    if (elapsed >= total) {
-      clearInterval(peruriSigningTimer);
-      peruriSigningTimer = null;
       completePeruriSigning(docId);
-    }
-  }, 500);
+    }, 4200);
+  }
+}
+
+function closePeruriSigningModal(docId) {
+  if (peruriSigningTimer) {
+    clearTimeout(peruriSigningTimer);
+    peruriSigningTimer = null;
+  }
+
+  const doc = appState.data && appState.data.documents && (appState.data.documents.find(d => d.id === docId) || appState.data.documents[0]);
+  if (doc && (doc.status === 'Menunggu TTD Digital (Peruri)' || doc.statusSuratKeluar === 'Signing by Peruri CA')) {
+    completePeruriSigning(docId);
+  }
+
+  closeModal();
+  renderApp();
 }
 
 function completePeruriSigning(docId) {
   if (peruriSigningTimer) {
-    clearInterval(peruriSigningTimer);
+    clearTimeout(peruriSigningTimer);
     peruriSigningTimer = null;
   }
 
@@ -4900,6 +4799,7 @@ function completePeruriSigning(docId) {
   const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
   const nowStr = `${dateFormatted} ${timeFormatted}`;
   const dsSerial = 'PERURI-DS-2026-' + Math.floor(1000000 + Math.random() * 9000000);
+  const signerName = (doc.approver && doc.approver.name) || 'Agung Mahendra';
 
   // Dokumen berhasil TTD Digital di Peruri dan DIKEMBALIKAN KE SENTRA (Admin Stempel)
   doc.status = 'Perlu Verifikasi Stempel';
@@ -4914,7 +4814,7 @@ function completePeruriSigning(docId) {
   doc.ttdDigitalDetail = {
     provider: 'Peruri Digital Security (CA)',
     serialNumber: dsSerial,
-    signer: 'Yetty Endarwati',
+    signer: signerName,
     waktuVerifikasi: `${nowStr} WIB`,
     status: 'Valid (CA-Certified)'
   };
@@ -4942,66 +4842,21 @@ function completePeruriSigning(docId) {
     fetch(`/api/documents/${doc.id}/peruri-sign-complete`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actorName: 'Yetty Endarwati' })
+      body: JSON.stringify({ actorName: signerName })
     }).catch(e => console.warn('API sync warn:', e));
   } catch (e) {}
 
-  // Update Modal Content to Success State
-  const footerArea = document.getElementById('peruri-modal-footer-area');
-  const step2 = document.getElementById('peruri-step-2');
-  const icon2 = document.getElementById('peruri-icon-2');
-  const title2 = document.getElementById('peruri-title-2');
-  const desc2 = document.getElementById('peruri-desc-2');
-  const step3 = document.getElementById('peruri-step-3');
-  const icon3 = document.getElementById('peruri-icon-3');
-  const title3 = document.getElementById('peruri-title-3');
-  const desc3 = document.getElementById('peruri-desc-3');
-  const terminalLogs = document.getElementById('peruri-terminal-logs');
+  // Update dots and timestamps if modal is currently open
+  const dot2 = document.getElementById('figma-step-dot-2');
+  const dot3 = document.getElementById('figma-step-dot-3');
+  const time2 = document.getElementById('figma-step-time-2');
+  const time3 = document.getElementById('figma-step-time-3');
+  const stepDateStr = (doc?.id === 'doc-01') ? '19 Mei 2026, 21.34' : formatFigmaStepDate(now);
 
-  if (step2 && icon2) {
-    step2.className = 'peruri-stepper-item done';
-    icon2.className = 'peruri-stepper-icon done';
-    icon2.innerHTML = '✓';
-    title2.style.color = '#027A48';
-    title2.textContent = '2. Tanda Tangan Digital Berhasil Diterbitkan oleh Peruri CA';
-    desc2.textContent = `Sertifikat X.509 resmi terpasang. Nomor Seri TTD: ${dsSerial}`;
-  }
-
-  if (step3 && icon3) {
-    step3.className = 'peruri-stepper-item done';
-    icon3.className = 'peruri-stepper-icon done';
-    icon3.innerHTML = '✓';
-    title3.style.color = '#027A48';
-    title3.textContent = '3. Dokumen Dikembalikan ke SENTRA & Dialihkan ke Admin Stempel';
-    desc3.textContent = 'Dokumen siap diverifikasi oleh Farah Nabila untuk pembubuhan stempel dinas.';
-  }
-
-  if (terminalLogs) {
-    terminalLogs.innerHTML += `
-      <div style="color: #6EE7B7; font-weight: bold;">[SUCCESS] Tanda tangan digital Peruri CA sah. SN: ${dsSerial}</div>
-      <div style="color: #F8FAFC;">[DISPATCH] Naskah dialihkan ke antrean Admin Stempel (Farah Nabila).</div>
-    `;
-    terminalLogs.scrollTop = terminalLogs.scrollHeight;
-  }
-
-  if (footerArea) {
-    footerArea.innerHTML = `
-      <div style="background: #ECFDF3; border: 1.5px solid #A6F4C5; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #00AD78; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">✓</div>
-        <div>
-          <div style="font-size: 13.5px; font-weight: 700; color: #027A48;">Tanda Tangan Digital Peruri Sukses Diterbitkan!</div>
-          <div style="font-size: 12px; color: #05603A; margin-top: 2px;">Naskah dinas resmi dikembalikan dari Peruri ke SENTRA dan siap diverifikasi oleh <strong>Admin Stempel (Farah Nabila)</strong>.</div>
-        </div>
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
-        <button type="button" class="btn btn-primary" onclick="proceedToAdminStempel('${docId}')" style="padding: 11px 24px; font-size: 14px; font-weight: 700; background: #00AD78; border: none; border-radius: 8px; color: #FFFFFF; cursor: pointer; box-shadow: 0 2px 4px rgba(0, 173, 120, 0.25); display: inline-flex; align-items: center; gap: 8px;">
-          <span>Buka sebagai Admin Stempel (Farah Nabila)</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-      </div>
-    `;
-  }
+  if (dot2) dot2.classList.add('done');
+  if (time2 && time2.textContent === '-') time2.textContent = stepDateStr;
+  if (dot3) dot3.classList.add('done');
+  if (time3 && time3.textContent === '-') time3.textContent = stepDateStr;
 }
 
 function proceedToAdminStempel(docId) {
@@ -6775,115 +6630,153 @@ function getRegisteredIncomingDocs() {
   if (!appState.data.registeredIncomingDocs || appState.data.registeredIncomingDocs.length === 0) {
     appState.data.registeredIncomingDocs = [
       {
-        id: 'reg-001',
-        agendaNumber: 'REG-2026-0042',
-        tanggalRegistrasi: '26/08/2026 14:53:12',
-        tanggalSurat: '13/08/2026 00:00:00',
+        id: 'sme-01',
+        hasAlert: true,
+        tanggalRegistrasi: '26/08/2026',
+        tanggalSurat: '10/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Penyebaran Pupuk Subsidi Secara Menyeluruh',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Terbatas',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'PL.01.02',
+        tujuanPic: '1250016 - Robby Setiabudi - Direktur Supply Chain',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-02',
+        hasAlert: true,
+        tanggalRegistrasi: '25/08/2026',
+        tanggalSurat: '09/08/2026',
         noSurat: '1/26/08/2026',
         perihal: 'Penyebaran Pupuk Subsidi Secara Menyeluruh',
         pengirim: 'Kementrian Pertanian',
         sifat: 'Rahasia',
         kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Robby Setiabudi (Direktorat Supply Chain)',
         klasifikasi: 'PL.01.02',
+        tujuanPic: '1250016 - Robby Setiabudi - Direktur Supply Chain',
+        file: 'Surat Pengantar.pdf',
         status: 'Terkirim ke PIC Internal'
       },
       {
-        id: 'reg-002',
-        agendaNumber: 'REG-2026-0041',
-        tanggalRegistrasi: '19/08/2026 10:19:02',
-        tanggalSurat: '18/08/2026 00:00:00',
-        noSurat: '1/19/08/2026',
-        perihal: 'Pupuk Subsidi',
+        id: 'sme-03',
+        hasAlert: false,
+        tanggalRegistrasi: '20/08/2026',
+        tanggalSurat: '08/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Terbatas',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-04',
+        hasAlert: false,
+        tanggalRegistrasi: '19/08/2026',
+        tanggalSurat: '07/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Sangat Rahasia',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-05',
+        hasAlert: false,
+        tanggalRegistrasi: '19/08/2026',
+        tanggalSurat: '07/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Sangat Rahasia',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-06',
+        hasAlert: false,
+        tanggalRegistrasi: '19/08/2026',
+        tanggalSurat: '07/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Sangat Rahasia',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-07',
+        hasAlert: false,
+        tanggalRegistrasi: '19/08/2026',
+        tanggalSurat: '07/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Sangat Rahasia',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-08',
+        hasAlert: false,
+        tanggalRegistrasi: '19/08/2026',
+        tanggalSurat: '07/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Sangat Rahasia',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-09',
+        hasAlert: false,
+        tanggalRegistrasi: '19/08/2026',
+        tanggalSurat: '07/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Digitalisasi & Data Science',
+        pengirim: 'Kementrian Pertanian',
+        sifat: 'Sangat Rahasia',
+        kecepatanTanggapan: 'Sangat Segera',
+        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
+        file: 'Surat Pengantar.pdf',
+        status: 'Terkirim ke PIC Internal'
+      },
+      {
+        id: 'sme-10',
+        hasAlert: false,
+        tanggalRegistrasi: '17/08/2026',
+        tanggalSurat: '06/08/2026',
+        noSurat: '1/26/08/2026',
+        perihal: 'Komp. Teknologi Infromasi',
         pengirim: 'Kementrian Pertanian',
         sifat: 'Rahasia',
         kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Dewi Lestari (Departemen Anggaran)',
-        klasifikasi: 'PL.01.02',
-        status: 'Terkirim ke PIC Internal'
-      },
-      {
-        id: 'reg-003',
-        agendaNumber: 'REG-2026-0040',
-        tanggalRegistrasi: '19/08/2026 10:06:16',
-        tanggalSurat: '18/08/2026 00:00:00',
-        noSurat: 'cssaascas',
-        perihal: 'hahaha',
-        pengirim: 'PT Uye',
-        sifat: 'Biasa',
-        kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Yetty Endarwati (Digitalisasi)',
         klasifikasi: 'TI.01.01',
-        status: 'Terkirim ke PIC Internal'
-      },
-      {
-        id: 'reg-004',
-        agendaNumber: 'REG-2026-0039',
-        tanggalRegistrasi: '11/08/2026 15:42:12',
-        tanggalSurat: '11/08/2026 00:00:00',
-        noSurat: 'dadadas',
-        perihal: 'ddasdsa',
-        pengirim: 'PT Angin Ribut',
-        sifat: 'Biasa',
-        kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Dewi Lestari (Departemen Anggaran)',
-        klasifikasi: 'BL.01.04',
-        status: 'Terkirim ke PIC Internal'
-      },
-      {
-        id: 'reg-005',
-        agendaNumber: 'REG-2026-0038',
-        tanggalRegistrasi: '11/08/2026 14:27:20',
-        tanggalSurat: '25/07/2025 00:00:00',
-        noSurat: '1/11/08/2026',
-        perihal: 'Surat Undangan ExHorizon',
-        pengirim: 'Sehun',
-        sifat: 'Biasa',
-        kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Rian Pratama (Admin DOF)',
-        klasifikasi: 'UM.02.01',
-        status: 'Terkirim ke PIC Internal'
-      },
-      {
-        id: 'reg-006',
-        agendaNumber: 'REG-2026-0037',
-        tanggalRegistrasi: '25/02/2026 14:56:20',
-        tanggalSurat: '23/02/2026 00:00:00',
-        noSurat: '25/02/2025/1',
-        perihal: 'UNDANGAN BUKBER',
-        pengirim: 'MARS',
-        sifat: 'Biasa',
-        kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Muhammad Ridha Fadli (Staff Operasional)',
-        klasifikasi: 'UM.01.01',
-        status: 'Terkirim ke PIC Internal'
-      },
-      {
-        id: 'reg-007',
-        agendaNumber: 'REG-2026-0036',
-        tanggalRegistrasi: '02/02/2026 16:20:49',
-        tanggalSurat: '02/02/2026 00:00:00',
-        noSurat: '123456',
-        perihal: 'Tes Regal',
-        pengirim: 'Coba Regal',
-        sifat: 'Terbatas',
-        kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Siti Rahma (Senior Officer Rantai Pasok)',
-        klasifikasi: 'BL.01.04',
-        status: 'Terkirim ke PIC Internal'
-      },
-      {
-        id: 'reg-008',
-        agendaNumber: 'REG-2026-0035',
-        tanggalRegistrasi: '20/01/2026 14:33:18',
-        tanggalSurat: '13/01/2026 00:00:00',
-        noSurat: '1/20/1/2026',
-        perihal: 'BLIND REG SURAT MASUK 20 JANUARI 2026',
-        pengirim: 'PAK ALI',
-        sifat: 'Sangat Rahasia',
-        kecepatanTanggapan: 'Sangat Segera',
-        tujuanPic: 'Yetty Endarwati (SVP Digitalisasi)',
-        klasifikasi: 'TI.01.01',
+        tujuanPic: 'Muhammad Ridha Fadli',
+        file: 'Surat Pengantar.pdf',
         status: 'Terkirim ke PIC Internal'
       }
     ];
@@ -6892,798 +6785,851 @@ function getRegisteredIncomingDocs() {
   return appState.data.registeredIncomingDocs;
 }
 
-// 5.A Halaman Registrasi Surat Masuk (Antrean Surat Masuk Eksternal)
-// Menampilkan antrean naskah eksternal yang menunggu proses verifikasi, input, dan distribusi ke internal
-function renderRegistrasiSuratMasukView() {
-  const pendingDocs = getPendingExternalDocs();
-  const regDocs = getRegisteredIncomingDocs();
+// ========================================================
+// 5. SURAT MASUK EKSTERNAL (ADMIN PENERIMA DOKUMEN)
+// Sesuai Desain Figma: Listing (Image 2 & 3) & Form Registrasi (Image 4)
+// ========================================================
 
-  const searchQuery = (appState.extDocSearchQuery || '').toLowerCase().trim();
-  const filterKecepatan = appState.extDocFilterKecepatan || 'all';
-  const filterSifat = appState.extDocFilterSifat || 'all';
+// 5.A Halaman Daftar Surat Masuk Eksternal (Image 2 & 3)
+function renderSuratMasukEksternalListView() {
+  const allDocs = getRegisteredIncomingDocs();
+  const searchQuery = (appState.smeSearchQuery || '').toLowerCase().trim();
+  const filterSifat = appState.smeFilterSifat || 'all';
+  const filterKecepatan = appState.smeFilterKecepatan || 'all';
+  const isDense = !!appState.smeIsDense;
 
-  const filtered = pendingDocs.filter(doc => {
+  const filteredDocs = allDocs.filter(doc => {
     if (searchQuery) {
       const match = (
-        (doc.nomorSurat && doc.nomorSurat.toLowerCase().includes(searchQuery)) ||
+        (doc.noSurat && doc.noSurat.toLowerCase().includes(searchQuery)) ||
         (doc.pengirim && doc.pengirim.toLowerCase().includes(searchQuery)) ||
         (doc.perihal && doc.perihal.toLowerCase().includes(searchQuery)) ||
-        (doc.isiRingkas && doc.isiRingkas.toLowerCase().includes(searchQuery))
+        (doc.tanggalRegistrasi && doc.tanggalRegistrasi.toLowerCase().includes(searchQuery))
       );
       if (!match) return false;
     }
-    if (filterKecepatan !== 'all' && (doc.kecepatanTanggapan || '').toLowerCase() !== filterKecepatan.toLowerCase()) {
+    if (filterSifat !== 'all' && (doc.sifat || '').toLowerCase() !== filterSifat.toLowerCase()) {
       return false;
     }
-    if (filterSifat !== 'all' && (doc.sifat || '').toLowerCase() !== filterSifat.toLowerCase()) {
+    if (filterKecepatan !== 'all' && (doc.kecepatanTanggapan || '').toLowerCase() !== filterKecepatan.toLowerCase()) {
       return false;
     }
     return true;
   });
 
   return `
-    <div style="margin-bottom: 22px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
-      <div>
-        <div style="font-size: 13px; color: #64748B; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-          <span>Registrasi Surat Masuk</span>
-          <span>&bull;</span>
-          <span style="color: #101828; font-weight: 600;">Antrean Surat Eksternal</span>
+    <div style="margin-bottom: 24px;">
+      <!-- Page Header: Title, Subtitle, & Primary + Registrasi Surat Masuk button -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <h1 style="font-size: 24px; font-weight: 700; color: #101828; margin: 0 0 4px 0; line-height: 1.2;">Daftar Surat Masuk Eksternal</h1>
+          <div style="font-size: 13.5px; color: #667085;">Surat Masuk Eksternal</div>
         </div>
-        <h1 style="font-size: 24px; font-weight: 700; color: #1E293B; margin: 0; line-height: 1.2;">Registrasi Surat Masuk</h1>
-      </div>
 
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <button type="button" class="btn btn-primary" onclick="openFormRegistrasiSuratMasuk()" style="display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: #00AD78; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 13.5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0, 173, 120, 0.2);">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <span>+ Registrasi Surat Masuk</span>
+        <button 
+          type="button" 
+          class="btn" 
+          onclick="navigate('registrasi-surat-masuk')" 
+          style="padding: 10px 18px; font-size: 14px; font-weight: 600; background: #00AD78; color: #FFFFFF; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); transition: background 0.15s ease;"
+          onmouseover="this.style.background='#009668'" 
+          onmouseout="this.style.background='#00AD78'"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Registrasi Surat Masuk</span>
         </button>
       </div>
-    </div>
 
-    <!-- Banner Peran Admin Penerima Dokumen -->
-    <div style="background: linear-gradient(135deg, #F0FDF9 0%, #FFFFFF 100%); border: 1.5px solid #A6F4C5; border-radius: 12px; padding: 18px 22px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0, 173, 120, 0.05);">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
-        <div style="display: flex; gap: 14px; max-width: 680px;">
-          <div style="width: 44px; height: 44px; border-radius: 10px; background: #00AD78; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0, 173, 120, 0.3);">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      <!-- Search & Filter Card Toolbar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border: 1px solid #EAECF0; border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; gap: 12px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);">
+        <div style="position: relative; flex: 1;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input 
+            type="text" 
+            placeholder="Cari Tanggal Registrasi/No Surat/Pengirim..." 
+            value="${escapeHtml(appState.smeSearchQuery || '')}" 
+            oninput="appState.smeSearchQuery = this.value; renderApp();" 
+            style="width: 100%; height: 38px; border: none; padding: 0 12px 0 38px; font-size: 13.5px; color: #101828; outline: none; background: transparent; box-sizing: border-box;" 
+          />
+        </div>
+
+        <button 
+          type="button" 
+          onclick="toggleSmeFilterModal()" 
+          style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid #D0D5DD; background: #FFFFFF; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: #344054; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <span>Filter</span>
+        </button>
+      </div>
+
+      <!-- Table Container matching Image 2 & 3 -->
+      <div class="card" style="padding: 0; border: 1px solid #EAECF0; border-radius: 10px; background: #FFFFFF; overflow: hidden; box-shadow: 0 1px 3px rgba(16,24,40,0.04);">
+        <div style="overflow-x: auto; width: 100%;">
+          <table class="sme-table ${isDense ? 'dense' : ''}">
+            <thead>
+              <tr>
+                <th style="width: 80px; text-align: center;">Action</th>
+                <th style="min-width: 150px;">Tanggal Registrasi</th>
+                <th style="min-width: 130px;">Tanggal Surat</th>
+                <th style="min-width: 140px;">No Surat</th>
+                <th style="min-width: 250px;">Perihal</th>
+                <th style="min-width: 180px;">Pengirim</th>
+                <th style="min-width: 110px;">Sifat</th>
+                <th style="min-width: 150px;">Kecepatan Tanggapan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredDocs.length === 0 ? `
+                <tr>
+                  <td colspan="8" style="padding: 48px 20px; text-align: center; color: #64748B;">
+                    <div style="font-size: 14px; font-weight: 600; color: #344054; margin-bottom: 4px;">Tidak ada surat masuk eksternal ditemukan</div>
+                    <div style="font-size: 13px;">Coba ubah kata kunci pencarian atau bersihkan filter.</div>
+                  </td>
+                </tr>
+              ` : filteredDocs.map(doc => `
+                <tr>
+                  <!-- Action Column -->
+                  <td style="text-align: center;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; color: #667085;">
+                      <button 
+                        type="button" 
+                        onclick="openSmeDetailModal('${doc.id}')" 
+                        title="Lihat Detail Naskah Masuk" 
+                        style="background: none; border: none; cursor: pointer; color: #667085; padding: 2px; display: flex; align-items: center; transition: color 0.15s ease;"
+                        onmouseover="this.style.color='#00AD78'"
+                        onmouseout="this.style.color='#667085'"
+                      >
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      <button 
+                        type="button" 
+                        onclick="openSmeHistoryModal('${doc.id}')" 
+                        title="Riwayat Registrasi & Distribusi" 
+                        style="background: none; border: none; cursor: pointer; color: #667085; padding: 2px; display: flex; align-items: center; transition: color 0.15s ease;"
+                        onmouseover="this.style.color='#3538CD'"
+                        onmouseout="this.style.color='#667085'"
+                      >
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Tanggal Registrasi with Green ! Alert Indicator -->
+                  <td>
+                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                      ${doc.hasAlert ? `
+                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #00AD78; color: #FFFFFF; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0;" title="Perlu Perhatian Segera">!</span>
+                      ` : ''}
+                      <span>${escapeHtml(doc.tanggalRegistrasi || '-')}</span>
+                    </div>
+                  </td>
+
+                  <!-- Tanggal Surat -->
+                  <td>
+                    <span>${escapeHtml(doc.tanggalSurat || '-')}</span>
+                  </td>
+
+                  <!-- No Surat -->
+                  <td>
+                    <span style="font-weight: 500;">${escapeHtml(doc.noSurat || '-')}</span>
+                  </td>
+
+                  <!-- Perihal -->
+                  <td>
+                    <span style="font-weight: 500; color: #101828;">${escapeHtml(doc.perihal || '-')}</span>
+                  </td>
+
+                  <!-- Pengirim -->
+                  <td>
+                    <span style="color: #344054;">${escapeHtml(doc.pengirim || '-')}</span>
+                  </td>
+
+                  <!-- Sifat -->
+                  <td>
+                    <span style="color: #344054;">${escapeHtml(doc.sifat || 'Biasa')}</span>
+                  </td>
+
+                  <!-- Kecepatan Tanggapan -->
+                  <td>
+                    <span style="color: #344054;">${escapeHtml(doc.kecepatanTanggapan || 'Biasa')}</span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table Footer: Dense Toggle and Pagination matching Image 2 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #FFFFFF; border-top: 1px solid #EAECF0; flex-wrap: wrap; gap: 14px;">
+          <!-- Dense toggle switch -->
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="position: relative; display: inline-block; width: 38px; height: 22px; cursor: pointer;">
+              <input 
+                type="checkbox" 
+                id="sme-dense-toggle" 
+                ${isDense ? 'checked' : ''} 
+                onchange="appState.smeIsDense = this.checked; renderApp();" 
+                style="opacity: 0; width: 0; height: 0;"
+              />
+              <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isDense ? '#00AD78' : '#D0D5DD'}; border-radius: 20px; transition: 0.25s;">
+                <span style="position: absolute; height: 16px; width: 16px; left: ${isDense ? '19px' : '3px'}; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.25s; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></span>
+              </span>
+            </label>
+            <span style="font-size: 13.5px; color: #344054; font-weight: 500;">Dense</span>
           </div>
-          <div>
-            <div style="font-size: 15px; font-weight: 700; color: #027A48; margin-bottom: 4px;">Gerbang Penghubung Surat Eksternal ke Internal Holding</div>
-            <div style="font-size: 13px; color: #475467; line-height: 1.5;">
-              Sebagai <strong>Admin Penerima Dokumen</strong>, Anda bertugas menerima naskah dari kementerian, anak perusahaan, dan mitra eksternal. Lakukan input data naskah masuk lalu <strong>kirimkan ke PIC internal yang relevan</strong> agar surat resmi dapat segera ditindaklanjuti.
+
+          <!-- Pagination -->
+          <div style="display: flex; align-items: center; gap: 18px; font-size: 13px; color: #475467;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span>Rows per page:</span>
+              <select style="border: none; background: transparent; font-size: 13px; color: #101828; font-weight: 600; cursor: pointer; outline: none;">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <span>1-${Math.min(10, filteredDocs.length)} of ${filteredDocs.length}</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button type="button" style="background: none; border: none; color: #98A2B3; cursor: pointer; padding: 4px; display: flex; align-items: center;" title="Halaman Sebelumnya">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button type="button" style="background: none; border: none; color: #344054; cursor: pointer; padding: 4px; display: flex; align-items: center;" title="Halaman Berikutnya">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
             </div>
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
-          <div style="background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; padding: 10px 16px; text-align: center; min-width: 140px;">
-            <div style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase;">Menunggu Proses</div>
-            <div style="font-size: 22px; font-weight: 800; color: #F04438;">${pendingDocs.length} Naskah</div>
-          </div>
-          <div style="background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; padding: 10px 16px; text-align: center; min-width: 140px;">
-            <div style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase;">Sudah Terdistribusi</div>
-            <div style="font-size: 22px; font-weight: 800; color: #00AD78;">${regDocs.length} Naskah</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Table Card: Antrean Surat Eksternal Menunggu Proses -->
-    <div class="card" style="padding: 0; border: 1px solid #E2E8F0; border-radius: 10px; background: #FFFFFF; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <!-- Toolbar Filter -->
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #E2E8F0; gap: 14px; flex-wrap: wrap;">
-        <div style="position: relative; flex: 1; max-width: 480px;">
-          <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748B; display: flex; align-items: center;">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input 
-            type="text" 
-            placeholder="Cari nomor surat, pengirim eksternal, perihal..." 
-            value="${escapeHtml(appState.extDocSearchQuery || '')}"
-            oninput="appState.extDocSearchQuery = this.value; renderApp();"
-            style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid #D0D5DD; padding: 0 14px 0 40px; font-size: 13px; color: #101828; outline: none; box-sizing: border-box;"
-          />
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #475467;">
-            <span>Kecepatan:</span>
-            <select onchange="appState.extDocFilterKecepatan = this.value; renderApp();" style="height: 36px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 0 10px; font-size: 12.5px; background: #fff; color: #344054;">
-              <option value="all" ${filterKecepatan === 'all' ? 'selected' : ''}>Semua Kecepatan</option>
-              <option value="Sangat Segera" ${filterKecepatan === 'Sangat Segera' ? 'selected' : ''}>Sangat Segera</option>
-              <option value="Segera" ${filterKecepatan === 'Segera' ? 'selected' : ''}>Segera</option>
-              <option value="Biasa" ${filterKecepatan === 'Biasa' ? 'selected' : ''}>Biasa</option>
-            </select>
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #475467;">
-            <span>Sifat:</span>
-            <select onchange="appState.extDocFilterSifat = this.value; renderApp();" style="height: 36px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 0 10px; font-size: 12.5px; background: #fff; color: #344054;">
-              <option value="all" ${filterSifat === 'all' ? 'selected' : ''}>Semua Sifat</option>
-              <option value="Rahasia" ${filterSifat === 'Rahasia' ? 'selected' : ''}>Rahasia</option>
-              <option value="Terbatas" ${filterSifat === 'Terbatas' ? 'selected' : ''}>Terbatas</option>
-              <option value="Biasa" ${filterSifat === 'Biasa' ? 'selected' : ''}>Biasa</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Table Body -->
-      <div style="overflow-x: auto; width: 100%;">
-        <table class="tipe-surat-table" style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0; font-size: 12.5px; font-weight: 600; color: #475467; text-align: left;">
-              <th style="padding: 12px 16px; width: 45px;">No.</th>
-              <th style="padding: 12px 16px; min-width: 170px;">Nomor Surat Asal</th>
-              <th style="padding: 12px 16px; min-width: 130px;">Tgl Surat</th>
-              <th style="padding: 12px 16px; min-width: 220px;">Instansi Pengirim (Eksternal)</th>
-              <th style="padding: 12px 16px; min-width: 240px;">Perihal</th>
-              <th style="padding: 12px 16px; width: 110px;">Sifat</th>
-              <th style="padding: 12px 16px; width: 140px;">Kecepatan</th>
-              <th style="padding: 12px 16px; min-width: 200px;">Rekomendasi PIC Internal</th>
-              <th style="padding: 12px 16px; min-width: 180px; text-align: center;">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filtered.length === 0 ? `
-              <tr>
-                <td colspan="9" style="text-align: center; padding: 48px 20px; color: #64748B;">
-                  <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
-                  <div style="font-weight: 600; font-size: 14px; color: #1E293B;">Tidak ada antrean surat eksternal menunggu proses</div>
-                  <div style="font-size: 12.5px; color: #64748B; margin-top: 4px;">Seluruh surat masuk dari pihak eksternal telah diinput dan diteruskan ke PIC internal.</div>
-                </td>
-              </tr>
-            ` : filtered.map((doc, idx) => {
-              const isSangatSegera = (doc.kecepatanTanggapan === 'Sangat Segera');
-              return `
-                <tr style="border-bottom: 1px solid #F1F5F9; font-size: 13px; transition: background 0.12s ease;">
-                  <td style="padding: 14px 16px; color: #64748B; font-weight: 600;">${idx + 1}</td>
-                  <td style="padding: 14px 16px;">
-                    <div style="font-weight: 700; font-family: monospace; color: #1E293B;">${escapeHtml(doc.nomorSurat)}</div>
-                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Diterima: ${escapeHtml(doc.tanggalTerima || 'Hari ini')}</div>
-                  </td>
-                  <td style="padding: 14px 16px; color: #475467;">
-                    ${escapeHtml(doc.tanggalSurat)}
-                  </td>
-                  <td style="padding: 14px 16px;">
-                    <div style="font-weight: 600; color: #101828;">${escapeHtml(doc.pengirim)}</div>
-                    ${doc.pengirimPic ? `<div style="font-size: 11.5px; color: #64748B;">PIC: ${escapeHtml(doc.pengirimPic)}</div>` : ''}
-                  </td>
-                  <td style="padding: 14px 16px;">
-                    <div style="font-weight: 600; color: #101828; line-height: 1.4;">${escapeHtml(doc.perihal)}</div>
-                    ${doc.isiRingkas ? `<div style="font-size: 11.5px; color: #64748B; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(doc.isiRingkas)}</div>` : ''}
-                  </td>
-                  <td style="padding: 14px 16px;">
-                    <span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; ${doc.sifat === 'Rahasia' ? 'background: #FEF3F2; color: #B42318; border: 1px solid #FECDCA;' : (doc.sifat === 'Terbatas' ? 'background: #EFF8FF; color: #175CD3; border: 1px solid #B2DDFF;' : 'background: #F8FAFC; color: #475569; border: 1px solid #E2E8F0;')}">
-                      ${escapeHtml(doc.sifat)}
-                    </span>
-                  </td>
-                  <td style="padding: 14px 16px; ${isSangatSegera ? 'background-color: #FED7AA; color: #7C2D12; font-weight: 700;' : 'color: #344054;'}">
-                    ${escapeHtml(doc.kecepatanTanggapan)}
-                  </td>
-                  <td style="padding: 14px 16px;">
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #027A48; font-weight: 600;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                      <span>${escapeHtml(doc.suggestedTujuan || 'Tentukan PIC')}</span>
-                    </div>
-                    ${doc.suggestedUnit ? `<div style="font-size: 11px; color: #64748B; margin-left: 20px;">${escapeHtml(doc.suggestedUnit)}</div>` : ''}
-                  </td>
-                  <td style="padding: 14px 16px; text-align: center;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                      <button 
-                        type="button" 
-                        onclick="openFormRegistrasiSuratMasuk('${escapeHtml(doc.id)}')" 
-                        style="padding: 6px 12px; background: #00AD78; color: #FFFFFF; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0, 173, 120, 0.2); transition: background 0.15s ease;"
-                        onmouseover="this.style.background='#029868'"
-                        onmouseout="this.style.background='#00AD78'"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        <span>Input & Kirim ke PIC</span>
-                      </button>
-                      <button 
-                        type="button" 
-                        class="action-icon-plain" 
-                        onclick="previewExternalDocFile('${escapeHtml(doc.id)}')" 
-                        title="Lihat Berkas Lampiran"
-                        style="color: #64748B;"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Footer Table -->
-      <div style="padding: 12px 20px; background: #F8FAFC; border-top: 1px solid #E2E8F0; font-size: 12.5px; color: #64748B; display: flex; justify-content: space-between; align-items: center;">
-        <div>Menampilkan <strong>${filtered.length}</strong> naskah eksternal menunggu proses input & penerusan</div>
-        <div style="font-size: 12px; color: #027A48; font-weight: 600;">Pencatatan Surat Masuk &bull; Biro Umum & Tata Usaha</div>
       </div>
     </div>
   `;
 }
-const renderSuratMasukAdminPenerimaView = renderRegistrasiSuratMasukView;
 
-// 5.B Halaman Form Registrasi Surat Masuk (Exact Match dengan Image 1 - dev-dof.pupuk-indonesia.com/RegistrasiSurat/Create)
-function openFormRegistrasiSuratMasuk(pendingDocId) {
-  appState.activePendingExtId = pendingDocId || null;
-  navigate('form-registrasi-surat');
-}
-
-function renderFormRegistrasiSuratMasukView() {
-  const pendingDocs = getPendingExternalDocs();
-  const doc = pendingDocs.find(p => p.id === appState.activePendingExtId);
-
-  const now = new Date();
-  const todayFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-
-  const defaultNoSurat = doc ? doc.nomorSurat : '';
-  const defaultTglSurat = doc ? doc.tanggalSurat : todayFormatted;
-  const defaultPengirim = doc ? doc.pengirim : '';
-  const defaultPerihal = doc ? doc.perihal : '';
-  const defaultSifat = doc ? doc.sifat : 'Terbatas';
-  const defaultKecepatan = doc ? doc.kecepatanTanggapan : 'Sangat Segera';
-  const defaultKlasifikasi = doc ? doc.klasifikasi : 'BL.01.04';
-  const defaultTujuan = doc ? (doc.suggestedTujuan || '1250016 - Robby Setiabudi - Direktur Supply Chain') : '1250016 - Robby Setiabudi - Direktur Supply Chain';
-  const defaultCc = 'Tim Digitalisasi, Divisi Hukum & Sekretariat Korporat';
-  const defaultIsiRingkas = doc ? (doc.isiRingkas || '') : '';
-  const defaultLampiran = doc ? (doc.lampiran || 'Berkas_Surat_Masuk.pdf') : '';
+// 5.B Halaman Registrasi Surat Masuk Eksternal (Image 4)
+function renderRegistrasiSuratMasukEksternalFormView() {
+  const currentPic = appState.smeSelectedPic || '1250016 - Robby Setiabudi - Direktur Supply Chain';
+  const mainFile = appState.smeMainFile || 'Surat Pengantar.pdf';
+  const attachments = appState.smeTempAttachments || [];
 
   return `
-    <div style="margin-bottom: 20px;">
-      <!-- Breadcrumb matching screenshot: Digital Office > Supporting Documents -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #64748B;">
-          <a href="#" onclick="navigate('registrasi-surat-masuk'); return false;" style="color: #64748B; text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 4px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            <span>Kembali ke Registrasi Surat Masuk</span>
+    <div style="padding-bottom: 80px; margin-bottom: 20px;">
+      <!-- Breadcrumb / Back Subtitle -->
+      <div style="margin-bottom: 20px;">
+        <h1 style="font-size: 24px; font-weight: 700; color: #101828; margin: 0 0 4px 0;">Registrasi Surat Masuk Eksternal</h1>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #667085;">
+          <a href="#" onclick="navigate('surat-masuk-eksternal'); return false;" style="color: #667085; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Daftar Surat Masuk Eksternal</span>
           </a>
-          <span>&bull;</span>
-          <span>Supporting Documents</span>
-          <span>&bull;</span>
-          <span style="color: #101828; font-weight: 600;">Registrasi Surat Masuk</span>
+          <span>/</span>
+          <span style="color: #101828; font-weight: 600;">Registrasi Surat</span>
         </div>
-
-        <button type="button" onclick="navigate('daftar-surat-masuk')" style="padding: 6px 14px; border: 1px solid #D0D5DD; background: #FFFFFF; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #344054; cursor: pointer;">
-          Lihat Daftar Surat Masuk (${getRegisteredIncomingDocs().length})
-        </button>
-      </div>
-    </div>
-
-    <!-- Main Detail Surat Masuk Fieldset Container (Exact Match with Image 1) -->
-    <div class="card" style="padding: 24px 28px; border: 1.5px solid #D0D5DD; border-radius: 8px; background: #FFFFFF; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-      
-      <!-- Top Legend Header -->
-      <div style="border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 15px; font-weight: 800; color: #1E293B; letter-spacing: 0.5px; text-transform: uppercase;">
-          DETAIL SURAT MASUK
-        </div>
-        ${doc ? `
-          <span style="font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 12px; background: #EFF8FF; color: #175CD3; border: 1px solid #B2DDFF;">
-            Menginput Antrean: ${escapeHtml(doc.nomorSurat)}
-          </span>
-        ` : ''}
       </div>
 
-      <form id="form-registrasi-surat-masuk" onsubmit="event.preventDefault(); submitRegistrasiSuratMasuk();">
-        <!-- 2 Columns Grid for Top Metadata Fields -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; margin-bottom: 18px;">
-          <!-- Tanggal Registrasi (Auto) -->
-          <div>
-            <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-              Tanggal Registrasi:
+      <form id="form-registrasi-surat-masuk-eksternal" onsubmit="event.preventDefault(); submitRegistrasiSuratMasukEksternal();">
+        <!-- 2 Columns Grid: Informasi Surat (Left) & Penerima + File (Right) -->
+        <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 24px; margin-bottom: 24px;">
+          
+          <!-- LEFT CARD: Informasi Surat -->
+          <div class="card" style="background: #FFFFFF; border: 1px solid #EAECF0; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);">
+            <h3 style="font-size: 16px; font-weight: 700; color: #101828; margin: 0 0 22px 0;">Informasi Surat</h3>
+
+            <!-- Nomor Surat * -->
+            <div class="sme-form-group">
+              <label class="sme-form-label">Nomor Surat <span style="color: #F04438;">*</span></label>
+              <input 
+                type="text" 
+                id="sme-no-surat" 
+                class="sme-form-input" 
+                value="1/26/08/2026" 
+                placeholder="Contoh: 1/26/08/2026" 
+                required 
+              />
+            </div>
+
+            <!-- Pengirim * -->
+            <div class="sme-form-group">
+              <label class="sme-form-label">Pengirim <span style="color: #F04438;">*</span></label>
+              <input 
+                type="text" 
+                id="sme-pengirim" 
+                class="sme-form-input" 
+                value="Kementerian Pertanian" 
+                placeholder="Nama instansi / kementerian pengirim..." 
+                required 
+              />
+            </div>
+
+            <!-- Perihal * -->
+            <div class="sme-form-group">
+              <label class="sme-form-label">Perihal <span style="color: #F04438;">*</span></label>
+              <input 
+                type="text" 
+                id="sme-perihal" 
+                class="sme-form-input" 
+                value="Penyebaran Pupuk Subsidi Secara Menyeluruh" 
+                placeholder="Perihal naskah dinas eksternal..." 
+                required 
+              />
+            </div>
+
+            <!-- Tanggal Surat * -->
+            <div class="sme-form-group">
+              <label class="sme-form-label">Tanggal Surat <span style="color: #F04438;">*</span></label>
+              <div style="position: relative;">
+                <input 
+                  type="text" 
+                  id="sme-tgl-surat" 
+                  class="sme-form-input" 
+                  value="13/12/2026" 
+                  placeholder="DD/MM/YYYY" 
+                  required 
+                />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+            </div>
+
+            <!-- Row 2 Columns: Sifat * & Klasifikasi * -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <!-- Sifat * -->
+              <div class="sme-form-group">
+                <label class="sme-form-label">Sifat <span style="color: #F04438;">*</span></label>
+                <select id="sme-sifat" class="sme-form-select">
+                  <option value="Terbatas" selected>Terbatas</option>
+                  <option value="Biasa">Biasa</option>
+                  <option value="Rahasia">Rahasia</option>
+                  <option value="Sangat Rahasia">Sangat Rahasia</option>
+                </select>
+              </div>
+
+              <!-- Klasifikasi * -->
+              <div class="sme-form-group">
+                <label class="sme-form-label">Klasifikasi <span style="color: #F04438;">*</span></label>
+                <select id="sme-klasifikasi" class="sme-form-select">
+                  <option value="BL.01.04" selected>BL.01.04 (pilar Hukum dan...</option>
+                  <option value="PL.01.02">PL.01.02 (Penyaluran Pupuk)</option>
+                  <option value="TI.01.01">TI.01.01 (Tata Kelola TI)</option>
+                  <option value="KU.02.01">KU.02.01 (Perbendaharaan)</option>
+                  <option value="UM.01.01">UM.01.01 (Sekretariat)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Kecepatan Tanggapan * -->
+            <div class="sme-form-group" style="margin-bottom: 0;">
+              <label class="sme-form-label">Kecepatan Tanggapan <span style="color: #F04438;">*</span></label>
+              <select id="sme-kecepatan" class="sme-form-select">
+                <option value="Sangat Segera" selected>Sangat Segera</option>
+                <option value="Segera">Segera</option>
+                <option value="Biasa">Biasa</option>
+              </select>
+            </div>
+
+          </div>
+
+          <!-- RIGHT COLUMN: Penerima & File -->
+          <div style="display: flex; flex-direction: column; gap: 24px;">
+
+            <!-- Penerima Card -->
+            <div class="card" style="background: #FFFFFF; border: 1px solid #EAECF0; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);">
+              <h3 style="font-size: 16px; font-weight: 700; color: #101828; margin: 0 0 22px 0;">Penerima</h3>
+
+              <!-- Tujuan * -->
+              <div class="sme-form-group">
+                <label class="sme-form-label">Tujuan <span style="color: #F04438;">*</span></label>
+                <div style="min-height: 44px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: #FFFFFF;">
+                  ${currentPic ? `
+                    <div id="sme-selected-pic-chip" style="background: #EBFDF5; border: 1px solid #A6F4C5; border-radius: 6px; padding: 5px 10px; font-size: 13px; font-weight: 600; color: #027A48; display: inline-flex; align-items: center; gap: 8px;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span id="sme-pic-label">${escapeHtml(currentPic)}</span>
+                      <button type="button" onclick="removeSmePicChip()" style="background: none; border: none; padding: 0; color: #027A48; cursor: pointer; display: flex; align-items: center; font-size: 14px; font-weight: 700;" title="Hapus PIC">&times;</button>
+                    </div>
+                  ` : ''}
+                  <select id="sme-add-pic-select" onchange="changeSmePicChip(this.value)" style="border: none; outline: none; background: transparent; font-size: 13px; color: #667085; cursor: pointer; flex: 1; min-width: 130px;">
+                    <option value="">${currentPic ? '+ Ganti PIC' : '+ Pilih Tujuan PIC Internal'}</option>
+                    <option value="1250016 - Robby Setiabudi - Direktur Supply Chain">1250016 - Robby Setiabudi - Direktur Supply Chain</option>
+                    <option value="1200088 - Yetty Endarwati - SVP Digitalisasi & Data Science">1200088 - Yetty Endarwati - SVP Digitalisasi & Data Science</option>
+                    <option value="1240092 - Dewi Lestari - Departemen Anggaran & Perbendaharaan">1240092 - Dewi Lestari - Departemen Anggaran & Perbendaharaan</option>
+                    <option value="1210106 - Agung Mahendra - AVP Pupuk Industri">1210106 - Agung Mahendra - AVP Pupuk Industri</option>
+                    <option value="1260011 - Muhammad Ridha Fadli - Digitalisasi Corporate Services">1260011 - Muhammad Ridha Fadli - Digitalisasi Corporate Services</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- CC (Internal) -->
+              <div class="sme-form-group">
+                <label class="sme-form-label">CC (Internal)</label>
+                <div style="position: relative;">
+                  <select id="sme-cc-select" class="sme-form-select" style="color: #667085;">
+                    <option value="">Tambah Penerima CC</option>
+                    <option value="Biro Umum & Sekretariat Korporat">Biro Umum & Sekretariat Korporat</option>
+                    <option value="Direktorat Pemasaran & Distribusi">Direktorat Pemasaran & Distribusi</option>
+                    <option value="Komp. Digitalisasi & Data Science">Komp. Digitalisasi & Data Science</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Keterangan -->
+              <div class="sme-form-group" style="margin-bottom: 0;">
+                <label class="sme-form-label">Keterangan</label>
+                <input 
+                  type="text" 
+                  id="sme-keterangan" 
+                  class="sme-form-input" 
+                  placeholder="Tambahkan keterangan" 
+                />
+              </div>
+            </div>
+
+            <!-- File Card (Surat Pengantar External) -->
+            <div class="card" style="background: #FFFFFF; border: 1px solid #EAECF0; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 16px; font-weight: 700; color: #101828; margin: 0;">File</h3>
+                <label style="padding: 6px 14px; border: 1px solid #D0D5DD; background: #FFFFFF; border-radius: 8px; font-size: 13px; font-weight: 600; color: #344054; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); transition: background 0.15s ease;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Upload File</span>
+                  <input type="file" id="sme-main-file-input" onchange="handleSmeMainFileUpload(event)" style="display: none;" accept=".pdf,.doc,.docx" />
+                </label>
+              </div>
+
+              <div id="sme-main-file-box">
+                ${mainFile ? `
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <div style="width: 38px; height: 38px; border-radius: 8px; background: #FEE4E2; display: flex; align-items: center; justify-content: center; color: #D92D20; flex-shrink: 0;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D92D20" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      </div>
+                      <div>
+                        <div id="sme-main-file-name" style="font-size: 13.5px; font-weight: 600; color: #101828;">${escapeHtml(mainFile)}</div>
+                        <div style="font-size: 12px; color: #667085;">Berkas Scan / Surat Masuk Eksternal</div>
+                      </div>
+                    </div>
+                    <button type="button" onclick="removeSmeMainFile()" style="background: none; border: none; color: #98A2B3; cursor: pointer; padding: 4px;" title="Hapus Berkas">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ` : `
+                  <div style="padding: 16px; border: 1.5px dashed #D0D5DD; border-radius: 8px; text-align: center; color: #667085; font-size: 13px;">
+                    Belum ada file surat pengantar diunggah. Klik <strong>+ Upload File</strong> di atas.
+                  </div>
+                `}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- BOTTOM CARD: Lampiran (Full Width) -->
+        <div class="card" style="background: #FFFFFF; border: 1px solid #EAECF0; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="font-size: 16px; font-weight: 700; color: #101828; margin: 0;">Lampiran</h3>
+            <label style="padding: 6px 14px; border: 1px solid #D0D5DD; background: #FFFFFF; border-radius: 8px; font-size: 13px; font-weight: 600; color: #344054; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); transition: background 0.15s ease;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Upload File</span>
+              <input type="file" id="sme-attachment-input" onchange="handleSmeAttachmentUpload(event)" multiple style="display: none;" />
             </label>
-            <input 
-              type="text" 
-              id="reg-tgl-registrasi" 
-              value="${todayFormatted}" 
-              disabled 
-              style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; background: #F8FAFC; padding: 0 12px; font-size: 13px; color: #475467; box-sizing: border-box;" 
-            />
           </div>
 
-          <!-- Klasifikasi * -->
-          <div>
-            <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-              Klasifikasi<span style="color: #F04438;">*</span>
-            </label>
-            <select id="reg-klasifikasi" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #1E293B; background: #fff; box-sizing: border-box;">
-              <option value="PL.01.02" ${defaultKlasifikasi.includes('PL.01.02') ? 'selected' : ''}>PL.01.02 (Penyaluran & Tata Niaga Pupuk Bersubsidi)</option>
-              <option value="BL.01.04" ${defaultKlasifikasi.includes('BL.01.04') ? 'selected' : ''}>BL.01.04 (pilar Hukum dan Tata Kelola)</option>
-              <option value="TI.01.01" ${defaultKlasifikasi.includes('TI.01.01') ? 'selected' : ''}>TI.01.01 (Tata Kelola Teknologi Informasi)</option>
-              <option value="KU.02.01" ${defaultKlasifikasi.includes('KU.02.01') ? 'selected' : ''}>KU.02.01 (Perbendaharaan & Anggaran)</option>
-              <option value="UM.01.01" ${defaultKlasifikasi.includes('UM.01.01') ? 'selected' : ''}>UM.01.01 (Sekretariat & Hubungan Kelembagaan)</option>
-            </select>
-          </div>
+          <div style="border: 1px solid #EAECF0; border-radius: 8px; overflow: hidden;">
+            <!-- Header Table Columns matching Image 4 -->
+            <div style="display: grid; grid-template-columns: 80px 1.5fr 1fr 1fr; padding: 12px 16px; background: #F9FAFB; border-bottom: 1px solid #EAECF0; font-size: 12.5px; font-weight: 600; color: #475467;">
+              <div>Action</div>
+              <div>File</div>
+              <div>Dibuat Tanggal</div>
+              <div>Dibuat Oleh</div>
+            </div>
 
-          <!-- No Surat * -->
-          <div>
-            <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-              No Surat:<span style="color: #F04438;">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="reg-no-surat" 
-              value="${escapeHtml(defaultNoSurat)}" 
-              placeholder="Contoh: 026/EXT-KEMENTAN/VII/2026" 
-              required
-              style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-            />
-          </div>
-
-          <!-- Tanggal Surat * -->
-          <div>
-            <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-              Tanggal Surat:<span style="color: #F04438;">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="reg-tgl-surat" 
-              value="${escapeHtml(defaultTglSurat)}" 
-              placeholder="DD/MM/YYYY" 
-              required
-              style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-            />
-          </div>
-
-          <!-- Sifat * -->
-          <div>
-            <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-              Sifat:<span style="color: #F04438;">*</span>
-            </label>
-            <select id="reg-sifat" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #1E293B; background: #fff; box-sizing: border-box;">
-              <option value="Rahasia" ${defaultSifat === 'Rahasia' ? 'selected' : ''}>Rahasia</option>
-              <option value="Terbatas" ${defaultSifat === 'Terbatas' ? 'selected' : ''}>Terbatas</option>
-              <option value="Biasa" ${defaultSifat === 'Biasa' ? 'selected' : ''}>Biasa</option>
-              <option value="Sangat Rahasia" ${defaultSifat === 'Sangat Rahasia' ? 'selected' : ''}>Sangat Rahasia</option>
-            </select>
-          </div>
-
-          <!-- Kecepatan Tanggapan * -->
-          <div>
-            <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-              Kecepatan Tanggapan:<span style="color: #F04438;">*</span>
-            </label>
-            <select id="reg-kecepatan" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #1E293B; background: #fff; box-sizing: border-box;">
-              <option value="Sangat Segera" ${defaultKecepatan === 'Sangat Segera' ? 'selected' : ''}>Sangat Segera</option>
-              <option value="Segera" ${defaultKecepatan === 'Segera' ? 'selected' : ''}>Segera</option>
-              <option value="Biasa" ${defaultKecepatan === 'Biasa' ? 'selected' : ''}>Biasa</option>
-            </select>
+            <!-- Attachments List / Empty State -->
+            <div id="sme-attachments-container">
+              ${attachments.length === 0 ? `
+                <div style="padding: 48px 20px; text-align: center; background: #FFFFFF;">
+                  <div style="width: 54px; height: 54px; margin: 0 auto 12px auto; background: #F2F4F7; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #98A2B3;">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                  </div>
+                  <div style="font-size: 14px; font-weight: 600; color: #475467;">No attachments yet</div>
+                  <div style="font-size: 12px; color: #98A2B3; margin-top: 4px;">Klik "+ Upload File" jika terdapat berkas lampiran pendukung</div>
+                </div>
+              ` : attachments.map((att, idx) => `
+                <div style="display: grid; grid-template-columns: 80px 1.5fr 1fr 1fr; padding: 12px 16px; border-bottom: 1px solid #EAECF0; align-items: center; font-size: 13px;">
+                  <div>
+                    <button type="button" onclick="removeSmeAttachment(${idx})" style="background: none; border: none; color: #F04438; cursor: pointer; padding: 2px;" title="Hapus Lampiran">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; font-weight: 500; color: #101828;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span>${escapeHtml(att.name)}</span>
+                  </div>
+                  <div style="color: #667085;">${escapeHtml(att.date)}</div>
+                  <div style="color: #667085;">${escapeHtml(att.by)}</div>
+                </div>
+              `).join('')}
+            </div>
           </div>
         </div>
 
-        <!-- Full Width Rows (Exact match with Image 1) -->
-        <!-- Pengirim * -->
-        <div style="margin-bottom: 16px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-            Pengirim:<span style="color: #F04438;">*</span>
-          </label>
-          <input 
-            type="text" 
-            id="reg-pengirim" 
-            value="${escapeHtml(defaultPengirim)}" 
-            placeholder="Masukkan instansi pengirim surat eksternal..." 
-            required
-            style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-          />
-        </div>
-
-        <!-- Perihal * -->
-        <div style="margin-bottom: 16px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-            Perihal:<span style="color: #F04438;">*</span>
-          </label>
-          <input 
-            type="text" 
-            id="reg-perihal" 
-            value="${escapeHtml(defaultPerihal)}" 
-            placeholder="Masukkan perihal surat masuk..." 
-            required
-            style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-          />
-        </div>
-
-        <!-- Tujuan (PIC Internal) * with green user group icon -->
-        <div style="margin-bottom: 16px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
-            <span>Tujuan (PIC Internal):<span style="color: #F04438;">*</span></span>
-            <span style="font-size: 11px; color: #027A48; font-weight: 500;">Pilih pejabat / PIC internal yang relevan untuk menindaklanjuti</span>
-          </label>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <button 
-              type="button" 
-              onclick="openPilihPicInternalModal('tujuan')" 
-              title="Pilih PIC Internal dari Master Kontak / Struktur Organisasi"
-              style="width: 38px; height: 38px; border-radius: 6px; border: 1px solid #A6F4C5; background: #ECFDF3; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #00AD78; flex-shrink: 0;"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </button>
-            <input 
-              type="text" 
-              id="reg-tujuan" 
-              value="${escapeHtml(defaultTujuan)}" 
-              placeholder="Klik ikon di samping atau ketik nama/unit PIC internal..." 
-              required
-              style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-            />
-          </div>
-        </div>
-
-        <!-- CC with green user group icon -->
-        <div style="margin-bottom: 16px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-            CC:
-          </label>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <button 
-              type="button" 
-              onclick="openPilihPicInternalModal('cc')" 
-              title="Pilih Tembusan Internal"
-              style="width: 38px; height: 38px; border-radius: 6px; border: 1px solid #A6F4C5; background: #ECFDF3; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #00AD78; flex-shrink: 0;"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </button>
-            <input 
-              type="text" 
-              id="reg-cc" 
-              value="${escapeHtml(defaultCc)}" 
-              placeholder="Pilih atau ketik unit tembusan (opsional)..." 
-              style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-            />
-          </div>
-        </div>
-
-        <!-- Keterangan -->
-        <div style="margin-bottom: 16px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-            Keterangan:
-          </label>
-          <input 
-            type="text" 
-            id="reg-keterangan" 
-            value="${doc ? 'Naskah dinas eksternal resmi diterima melalui loket Tata Usaha SENTRA' : ''}" 
-            placeholder="Catatan tambahan untuk disposisi / arahan tindak lanjut..." 
-            style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-          />
-        </div>
-
-        <!-- Isi Ringkas Arsip (Textarea) -->
-        <div style="margin-bottom: 18px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-            Isi Ringkas Arsip:
-          </label>
-          <textarea 
-            id="reg-isi-ringkas" 
-            rows="4" 
-            placeholder="Masukkan ringkasan pokok-pokok naskah dinas..."
-            style="width: 100%; border-radius: 6px; border: 1px solid #D0D5DD; padding: 10px 12px; font-size: 13px; color: #101828; line-height: 1.5; outline: none; box-sizing: border-box; resize: vertical;"
-          >${escapeHtml(defaultIsiRingkas)}</textarea>
-        </div>
-
-        <!-- File -->
-        <div style="margin-bottom: 20px;">
-          <label style="font-size: 12.5px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">
-            File:
-          </label>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input 
-              type="text" 
-              id="reg-file-name" 
-              value="${escapeHtml(defaultLampiran)}" 
-              placeholder="Pilih file berkas surat..." 
-              style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid #D0D5DD; padding: 0 12px; font-size: 13px; color: #101828; box-sizing: border-box;" 
-            />
-            <button 
-              type="button" 
-              onclick="showToast('Memilih file dari perangkat lokal...')" 
-              style="height: 38px; padding: 0 16px; border: 1px solid #D0D5DD; border-radius: 6px; background: #F8FAFC; color: #344054; font-size: 13px; font-weight: 600; cursor: pointer;"
-            >
-              Browse...
-            </button>
-          </div>
-        </div>
-
-        <!-- ATTACHMENT Dropzone (Exact Match with Image 1) -->
-        <div style="margin-bottom: 30px;">
-          <div style="font-size: 12.5px; font-weight: 700; color: #344054; margin-bottom: 8px; text-transform: uppercase;">
-            ATTACHMENT
-          </div>
-          <div style="border: 2px dashed #D0D5DD; border-radius: 8px; padding: 22px; text-align: center; background: #FAFAFA; display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 13px; color: #64748B;">Drop file(s) here</span>
-            <button 
-              type="button" 
-              onclick="showToast('Pilih lampiran pendukung...')" 
-              style="height: 34px; padding: 0 16px; border: 1px solid #D0D5DD; border-radius: 6px; background: #FFFFFF; color: #344054; font-size: 13px; font-weight: 600; cursor: pointer;"
-            >
-              Browse...
-            </button>
-          </div>
-        </div>
-
-        <!-- Action Button: KIRIM (Large Green Button matching Screenshot) -->
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <button 
-            type="submit" 
-            style="width: 100%; height: 46px; background: #00AD78; color: #FFFFFF; border: none; border-radius: 6px; font-size: 15px; font-weight: 800; letter-spacing: 1px; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 2px 4px rgba(0, 173, 120, 0.2);"
-            onmouseover="this.style.background='#029868'"
-            onmouseout="this.style.background='#00AD78'"
-          >
-            KIRIM
-          </button>
-
+        <!-- Fixed Bottom Action Bar (Exact match Figma: Cancel & Kirim) -->
+        <div class="create-surat-fixed-bottom-bar" style="justify-content: flex-end; gap: 12px; z-index: 100;">
           <button 
             type="button" 
-            onclick="navigate('registrasi-surat-masuk')" 
-            style="width: 100%; height: 40px; background: #FFFFFF; color: #64748B; border: 1px solid #D0D5DD; border-radius: 6px; font-size: 13.5px; font-weight: 600; cursor: pointer;"
+            onclick="navigate('surat-masuk-eksternal')" 
+            class="btn"
+            style="padding: 10px 24px; font-size: 14px; font-weight: 600; color: #344054; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);"
           >
-            Batal
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            class="btn"
+            style="padding: 10px 28px; font-size: 14px; font-weight: 600; color: #FFFFFF; background: #00AD78; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);"
+          >
+            Kirim
           </button>
         </div>
+
       </form>
     </div>
   `;
 }
 
-// 5.C Proses Submit Registrasi & Distribusi Surat ke PIC Internal
-function submitRegistrasiSuratMasuk() {
-  const noSurat = (document.getElementById('reg-no-surat')?.value || '').trim();
-  const tglSurat = (document.getElementById('reg-tgl-surat')?.value || '').trim();
-  const klasifikasi = (document.getElementById('reg-klasifikasi')?.value || 'PL.01.02').trim();
-  const sifat = (document.getElementById('reg-sifat')?.value || 'Rahasia').trim();
-  const kecepatan = (document.getElementById('reg-kecepatan')?.value || 'Sangat Segera').trim();
-  const pengirim = (document.getElementById('reg-pengirim')?.value || '').trim();
-  const perihal = (document.getElementById('reg-perihal')?.value || '').trim();
-  const tujuan = (document.getElementById('reg-tujuan')?.value || '').trim();
-  const cc = (document.getElementById('reg-cc')?.value || '').trim();
-  const keterangan = (document.getElementById('reg-keterangan')?.value || '').trim();
-  const isiRingkas = (document.getElementById('reg-isi-ringkas')?.value || '').trim();
-  const fileName = (document.getElementById('reg-file-name')?.value || 'Surat_Eksternal_Masuk.pdf').trim();
+// Handler functions for Surat Masuk Eksternal
+function changeSmePicChip(val) {
+  if (!val) return;
+  appState.smeSelectedPic = val;
+  renderApp();
+}
 
-  if (!noSurat || !pengirim || !perihal || !tujuan) {
-    showToast('Harap lengkapi No Surat, Pengirim, Perihal, dan Tujuan PIC Internal.', true);
+function removeSmePicChip() {
+  appState.smeSelectedPic = '';
+  renderApp();
+}
+
+function handleSmeMainFileUpload(e) {
+  const file = e.target.files && e.target.files[0];
+  if (file) {
+    appState.smeMainFile = file.name;
+    showToast(`File "${file.name}" berhasil diunggah.`);
+    renderApp();
+  }
+}
+
+function removeSmeMainFile() {
+  appState.smeMainFile = '';
+  renderApp();
+}
+
+function handleSmeAttachmentUpload(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+  if (!appState.smeTempAttachments) appState.smeTempAttachments = [];
+
+  const now = new Date();
+  const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+  for (let i = 0; i < files.length; i++) {
+    appState.smeTempAttachments.push({
+      name: files[i].name,
+      date: dateFormatted,
+      by: getCurrentPersona().name || 'Agus Setiawan'
+    });
+  }
+  showToast(`${files.length} lampiran berkas berhasil ditambahkan.`);
+  renderApp();
+}
+
+function removeSmeAttachment(idx) {
+  if (appState.smeTempAttachments && appState.smeTempAttachments[idx]) {
+    appState.smeTempAttachments.splice(idx, 1);
+    renderApp();
+  }
+}
+
+function saveSmeDraft() {
+  showToast('Draft registrasi surat masuk berhasil disimpan.');
+}
+
+function submitRegistrasiSuratMasukEksternal() {
+  const noSurat = document.getElementById('sme-no-surat')?.value?.trim();
+  const pengirim = document.getElementById('sme-pengirim')?.value?.trim();
+  const perihal = document.getElementById('sme-perihal')?.value?.trim();
+  const tglSurat = document.getElementById('sme-tgl-surat')?.value?.trim() || '13/12/2026';
+  const sifat = document.getElementById('sme-sifat')?.value || 'Terbatas';
+  const klasifikasi = document.getElementById('sme-klasifikasi')?.value || 'BL.01.04';
+  const kecepatan = document.getElementById('sme-kecepatan')?.value || 'Sangat Segera';
+  const tujuan = appState.smeSelectedPic || '1250016 - Robby Setiabudi - Direktur Supply Chain';
+
+  if (!noSurat || !pengirim || !perihal) {
+    showToast('Mohon lengkapi seluruh field bertanda bintang (*).');
     return;
   }
 
   const now = new Date();
   const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-  const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-  const regTimestamp = `${dateFormatted} ${timeFormatted}`;
+  const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const regDocs = getRegisteredIncomingDocs();
-  const agendaNumber = `REG-2026-${String(regDocs.length + 1).padStart(4, '0')}`;
-
-  const newRegDoc = {
-    id: 'reg-' + Date.now(),
-    agendaNumber: agendaNumber,
-    tanggalRegistrasi: regTimestamp,
-    tanggalSurat: tglSurat ? `${tglSurat} 00:00:00` : `${dateFormatted} 00:00:00`,
+  const newDoc = {
+    id: 'sme-' + Date.now(),
+    hasAlert: true,
+    tanggalRegistrasi: dateFormatted,
+    tanggalSurat: tglSurat,
     noSurat: noSurat,
     perihal: perihal,
     pengirim: pengirim,
     sifat: sifat,
     kecepatanTanggapan: kecepatan,
-    tujuanPic: tujuan,
     klasifikasi: klasifikasi,
-    isiRingkas: isiRingkas,
-    keterangan: keterangan,
-    status: 'Terkirim ke PIC Internal'
+    tujuanPic: tujuan,
+    file: appState.smeMainFile || 'Surat Pengantar.pdf',
+    lampiran: appState.smeTempAttachments || [],
+    status: 'Terkirim ke PIC Internal',
+    diinputOleh: getCurrentPersona().name || 'Agus Setiawan'
   };
 
-  regDocs.unshift(newRegDoc);
+  const regDocs = getRegisteredIncomingDocs();
+  regDocs.unshift(newDoc);
+  saveLocalCopy(appState.data);
 
-  // Injeksi otomatis dokumen naskah dinas ke inbox PIC internal penerima
-  if (!appState.data) appState.data = {};
+  // Sync with documents list so PIC internal can see it in their Surat Masuk
   if (!appState.data.documents) appState.data.documents = [];
-
-  const recipientId = tujuan.toLowerCase().includes('dewi') ? 'recipient' : (tujuan.toLowerCase().includes('robby') ? '1250016' : 'recipient-custom');
-
-  const internalDoc = {
-    id: 'doc-ext-inc-' + Date.now().toString().slice(-5),
+  appState.data.documents.unshift({
+    id: newDoc.id,
     hasAlert: true,
     nomorSurat: noSurat,
     judul: perihal,
+    status: 'Terkirim',
+    statusSuratKeluar: 'Completed',
+    role: 'Recipient',
+    roleSuratKeluar: 'Recipient',
+    diperbaharuiTanggal: `${dateFormatted} ${timeFormatted}`,
+    diperbaharuiOleh: pengirim,
     pengirim: pengirim,
-    unitKerja: pengirim,
-    tanggalTercipta: dateFormatted,
+    unitKerja: 'Pengirim Eksternal',
     prioritas: kecepatan,
     sifat: sifat,
-    keterangan: `Naskah eksternal resmi dari ${pengirim} (Diteruskan oleh Admin TU Agus Setiawan)`,
-    statusTindakLanjut: 'Open',
-    jenisSurat: 'Surat Masuk Eksternal',
-    template: 'Surat Masuk Eksternal',
     klasifikasi: klasifikasi,
-    isSuratEksternalMasuk: true,
+    isSuratEksternal: true,
+    currentAssigneeRole: 'recipient',
+    currentAssigneeName: tujuan,
     penerima: {
-      id: recipientId,
-      name: tujuan,
-      unit: tujuan.includes('-') ? tujuan.split('-').pop().trim() : 'Unit Kerja Internal'
+      id: 'recipient',
+      name: tujuan
     },
-    cc: cc ? [cc] : ['Tim Digitalisasi'],
-    perluTindakLanjut: true,
-    tindakLanjutNote: keterangan || 'Mohon segera ditindaklanjuti sesuai kewenangan.',
-    tindakLanjutStatus: 'Menunggu Tindak Lanjut',
-    status: 'Surat Masuk',
-    statusBadge: 'primary',
-    ringkasan: isiRingkas || perihal,
     lampiran: [
-      { name: fileName, size: '2.4 MB', tanggal: dateFormatted, oleh: pengirim }
-    ],
-    timeline: [
-      {
-        waktu: `${regTimestamp} WIB`,
-        aktor: 'Agus Setiawan',
-        peran: 'Admin Penerima Dokumen',
-        aksi: 'Registrasi & Distribusi ke Internal',
-        catatan: `Naskah eksternal dicatat dalam Agenda TU (${agendaNumber}) dan berhasil diteruskan ke ${tujuan}.`
-      }
+      { name: newDoc.file, size: '1.4 MB' },
+      ...(newDoc.lampiran.map(l => ({ name: l.name, size: '1.1 MB' })))
     ]
-  };
-
-  appState.data.documents.unshift(internalDoc);
-
-  // Jika berasal dari antrean pending, hapus dari antrean
-  if (appState.activePendingExtId) {
-    appState.data.pendingExternalDocs = (appState.data.pendingExternalDocs || []).filter(p => p.id !== appState.activePendingExtId);
-    appState.activePendingExtId = null;
-  }
-
+  });
   saveLocalCopy(appState.data);
-  showToast(`Surat eksternal "${noSurat}" berhasil diregistrasi dan dikirim ke ${tujuan}!`);
-  navigate('daftar-surat-masuk');
+
+  showToast(`Surat masuk eksternal "${noSurat}" berhasil diregistrasi & diteruskan ke ${tujuan.split(' - ')[1] || tujuan}!`);
+  navigate('surat-masuk-eksternal');
 }
 
-// 5.D Halaman Daftar Registrasi Surat Masuk (Exact Match dengan Image 2 - dev-dof.pupuk-indonesia.com/RegistrasiSurat/Index)
-function renderDaftarSuratMasukView() {
+// Modal Detail Naskah Masuk Eksternal (Eye Action)
+function openSmeDetailModal(docId) {
   const regDocs = getRegisteredIncomingDocs();
+  const doc = regDocs.find(d => d.id === docId) || regDocs[0];
+  if (!doc) return;
 
-  return `
-    <div style="margin-bottom: 22px;">
-      <!-- Top Title & Year Filter Bar matching Screenshot 2 -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="width: 28px; height: 28px; border-radius: 6px; background: #EEF4FF; color: #3538CD; display: flex; align-items: center; justify-content: center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          </span>
-          <h1 style="font-size: 18px; font-weight: 700; color: #1E293B; margin: 0;">Daftar Registrasi Surat Masuk</h1>
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  modalContainer.innerHTML = `
+    <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
+      <div class="modal-card" style="max-width: 600px; width: 100%; padding: 28px 30px; border-radius: 14px; background: #FFFFFF; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #EAECF0; padding-bottom: 16px;">
+          <div>
+            <span style="font-size: 11px; font-weight: 700; color: #00AD78; letter-spacing: 0.8px; text-transform: uppercase;">Naskah Masuk Eksternal</span>
+            <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 4px 0 0 0;">${escapeHtml(doc.noSurat)}</h3>
+          </div>
+          <button type="button" onclick="closeModal()" style="background: none; border: none; font-size: 20px; color: #98A2B3; cursor: pointer;">&times;</button>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 13px; color: #475467; font-weight: 500;">Tahun</span>
-          <select style="height: 34px; border: 1px solid #D0D5DD; border-radius: 6px; padding: 0 10px; font-size: 13px; background: #fff; color: #101828;">
-            <option selected>2026</option>
-            <option>2025</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Subtitle Centered: List Registrasi Surat Masuk - Tahun 2026 -->
-      <div style="text-align: center; font-size: 14px; font-weight: 600; color: #344054; margin: 16px 0 12px 0;">
-        List Registrasi Surat Masuk - Tahun 2026
-      </div>
-
-      <!-- Action Buttons -->
-      <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <button 
-          type="button" 
-          onclick="showToast('Mengekspor data registrasi surat masuk ke file Excel (.XLSX)...')" 
-          style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #344054; cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,0.05);"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00AD78" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
-          <span>Export to XLSX</span>
-        </button>
-
-        <button 
-          type="button" 
-          onclick="navigate('registrasi-surat-masuk')" 
-          style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; background: #00AD78; color: #FFFFFF; border: none; border-radius: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0, 173, 120, 0.2);"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <span>Antrean Registrasi Surat Masuk (${getPendingExternalDocs().length})</span>
-        </button>
-      </div>
-
-      <!-- Table Container with sub-header filter inputs matching Screenshot 2 -->
-      <div class="card" style="padding: 0; border: 1px solid #E2E8F0; border-radius: 8px; background: #FFFFFF; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <div style="overflow-x: auto; width: 100%;">
-          <table class="tipe-surat-table" style="width: 100%; border-collapse: collapse; font-size: 12.5px;">
-            <thead>
-              <!-- Main Header Row -->
-              <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0; color: #344054; text-align: left;">
-                <th style="padding: 10px 12px; min-width: 155px; font-weight: 700;">
-                  <div style="display: flex; align-items: center; gap: 4px;">
-                    <span>Tanggal Registrasi</span>
-                    <span style="font-size: 11px; color: #64748B;">&darr;</span>
-                  </div>
-                </th>
-                <th style="padding: 10px 12px; min-width: 155px; font-weight: 700;">Tanggal Surat</th>
-                <th style="padding: 10px 12px; min-width: 130px; font-weight: 700;">No Surat</th>
-                <th style="padding: 10px 12px; min-width: 220px; font-weight: 700;">Perihal</th>
-                <th style="padding: 10px 12px; min-width: 160px; font-weight: 700;">Pengirim</th>
-                <th style="padding: 10px 12px; min-width: 90px; font-weight: 700;">Sifat</th>
-                <th style="padding: 10px 12px; min-width: 140px; font-weight: 700;">Kecepatan Tanggapan</th>
-                <th style="padding: 10px 12px; min-width: 180px; font-weight: 700;">PIC Internal (Tujuan)</th>
-              </tr>
-
-              <!-- Sub-header Row of Filter Input Boxes (Exact Match with Image 2) -->
-              <tr style="background: #FFFFFF; border-bottom: 2px solid #E2E8F0;">
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring tanggal registrasi...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring tanggal surat...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring nomor surat...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring perihal...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring pengirim...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring sifat...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring kecepatan tanggapan...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-                <th style="padding: 6px 10px;">
-                  <input type="text" placeholder="" oninput="showToast('Menyaring PIC...')" style="width: 100%; height: 26px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 6px; font-size: 11.5px; box-sizing: border-box;" />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              ${regDocs.map(item => {
-                const isSangatSegera = (item.kecepatanTanggapan === 'Sangat Segera');
-                return `
-                  <tr style="border-bottom: 1px solid #F1F5F9; color: #1E293B;">
-                    <td style="padding: 11px 12px; color: #334155; font-family: monospace; font-size: 12px;">
-                      ${escapeHtml(item.tanggalRegistrasi)}
-                    </td>
-                    <td style="padding: 11px 12px; color: #475467; font-family: monospace; font-size: 12px;">
-                      ${escapeHtml(item.tanggalSurat)}
-                    </td>
-                    <td style="padding: 11px 12px; font-weight: 500; font-family: monospace;">
-                      ${escapeHtml(item.noSurat)}
-                    </td>
-                    <td style="padding: 11px 12px; font-weight: 500;">
-                      ${escapeHtml(item.perihal)}
-                    </td>
-                    <td style="padding: 11px 12px; color: #334155;">
-                      ${escapeHtml(item.pengirim)}
-                    </td>
-                    <td style="padding: 11px 12px; color: #475467;">
-                      ${escapeHtml(item.sifat)}
-                    </td>
-                    <td style="padding: 11px 12px; ${isSangatSegera ? 'background-color: #FED7AA; color: #7C2D12; font-weight: 600;' : 'color: #344054;'}">
-                      ${escapeHtml(item.kecepatanTanggapan)}
-                    </td>
-                    <td style="padding: 11px 12px; color: #027A48; font-weight: 600;">
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                        <span>${escapeHtml(item.tujuanPic || 'Internal PIC')}</span>
-                      </div>
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; background: #F8FAFC; border: 1px solid #EAECF0; border-radius: 10px; padding: 16px; font-size: 13px;">
+          <div>
+            <div style="color: #667085; font-size: 12px; margin-bottom: 2px;">Pengirim Eksternal:</div>
+            <div style="font-weight: 600; color: #101828;">${escapeHtml(doc.pengirim)}</div>
+          </div>
+          <div>
+            <div style="color: #667085; font-size: 12px; margin-bottom: 2px;">Tanggal Surat:</div>
+            <div style="font-weight: 600; color: #101828;">${escapeHtml(doc.tanggalSurat)}</div>
+          </div>
+          <div>
+            <div style="color: #667085; font-size: 12px; margin-bottom: 2px;">Tanggal Registrasi:</div>
+            <div style="font-weight: 600; color: #101828;">${escapeHtml(doc.tanggalRegistrasi)}</div>
+          </div>
+          <div>
+            <div style="color: #667085; font-size: 12px; margin-bottom: 2px;">Sifat / Kecepatan:</div>
+            <div style="font-weight: 600; color: #101828;">${escapeHtml(doc.sifat)} / ${escapeHtml(doc.kecepatanTanggapan)}</div>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <div style="color: #667085; font-size: 12px; margin-bottom: 2px;">Perihal:</div>
+            <div style="font-weight: 600; color: #101828;">${escapeHtml(doc.perihal)}</div>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <div style="color: #667085; font-size: 12px; margin-bottom: 2px;">Tujuan PIC Internal:</div>
+            <div style="font-weight: 700; color: #027A48;">${escapeHtml(doc.tujuanPic || '1250016 - Robby Setiabudi - Direktur Supply Chain')}</div>
+          </div>
         </div>
 
-        <!-- Footer Info -->
-        <div style="padding: 12px 18px; background: #F8FAFC; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; display: flex; justify-content: space-between; align-items: center;">
-          <div>Total arsip registrasi: <strong>${regDocs.length}</strong> naskah masuk</div>
-          <div>Biro Umum & Sekretariat Korporat &bull; SENTRA DoF</div>
+        <!-- Berkas File Surat Pengantar -->
+        <div style="margin-bottom: 24px;">
+          <div style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 8px;">File Surat Pengantar:</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #FFFFFF; border: 1px solid #EAECF0; border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D92D20" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <div>
+                <div style="font-size: 13.5px; font-weight: 600; color: #101828;">${escapeHtml(doc.file || 'Surat Pengantar.pdf')}</div>
+                <div style="font-size: 12px; color: #667085;">1.4 MB &bull; Berkas Resmi Surat Masuk</div>
+              </div>
+            </div>
+            <button type="button" onclick="showToast('Mengunduh ' + (doc.file || 'Surat Pengantar.pdf') + '...')" style="padding: 6px 14px; border: 1px solid #D0D5DD; background: #FFFFFF; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #344054; cursor: pointer;">
+              Download
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="btn" onclick="closeModal()" style="padding: 9px 22px; font-size: 14px; font-weight: 600; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
+            Tutup
+          </button>
         </div>
       </div>
     </div>
   `;
 }
+
+// Modal Riwayat / Timeline Surat Masuk Eksternal (Clock Action)
+function openSmeHistoryModal(docId) {
+  const regDocs = getRegisteredIncomingDocs();
+  const doc = regDocs.find(d => d.id === docId) || regDocs[0];
+  if (!doc) return;
+
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  modalContainer.innerHTML = `
+    <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
+      <div class="modal-card" style="max-width: 520px; width: 100%; padding: 26px 28px; border-radius: 14px; background: #FFFFFF; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #EAECF0; padding-bottom: 14px;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; color: #101828; margin: 0 0 2px 0;">Riwayat Registrasi</h3>
+            <div style="font-size: 13px; color: #667085;">${escapeHtml(doc.noSurat)}</div>
+          </div>
+          <button type="button" onclick="closeModal()" style="background: none; border: none; font-size: 20px; color: #98A2B3; cursor: pointer;">&times;</button>
+        </div>
+
+        <div style="position: relative; margin-bottom: 22px;">
+          <!-- Item 1 -->
+          <div style="display: flex; gap: 14px; position: relative;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 14px; flex-shrink: 0; position: relative;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #00AD78; margin-top: 3px; z-index: 2;"></div>
+              <div style="position: absolute; top: 15px; bottom: -8px; width: 2px; background: #EAECF0; z-index: 1;"></div>
+            </div>
+            <div style="flex: 1; padding-bottom: 18px;">
+              <div style="font-size: 12.5px; color: #667085;">${escapeHtml(doc.tanggalSurat)}</div>
+              <div style="font-size: 14px; font-weight: 600; color: #101828; margin: 3px 0 2px 0;">Surat Diterbitkan Pengirim Eksternal</div>
+              <div style="font-size: 13px; color: #475467;">Oleh: ${escapeHtml(doc.pengirim)}</div>
+              <div style="border-bottom: 1px dashed #EAECF0; margin-top: 14px;"></div>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div style="display: flex; gap: 14px; position: relative;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 14px; flex-shrink: 0; position: relative;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #00AD78; margin-top: 3px; z-index: 2;"></div>
+              <div style="position: absolute; top: 15px; bottom: -8px; width: 2px; background: #EAECF0; z-index: 1;"></div>
+            </div>
+            <div style="flex: 1; padding-bottom: 18px;">
+              <div style="font-size: 12.5px; color: #667085;">${escapeHtml(doc.tanggalRegistrasi)}</div>
+              <div style="font-size: 14px; font-weight: 600; color: #101828; margin: 3px 0 2px 0;">Registrasi Masuk & Input Metadata di SENTRA</div>
+              <div style="font-size: 13px; color: #475467;">Oleh: Agus Setiawan (Admin Penerima Dokumen)</div>
+              <div style="border-bottom: 1px dashed #EAECF0; margin-top: 14px;"></div>
+            </div>
+          </div>
+
+          <!-- Item 3 -->
+          <div style="display: flex; gap: 14px; position: relative;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 14px; flex-shrink: 0; position: relative;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #00AD78; margin-top: 3px; z-index: 2;"></div>
+            </div>
+            <div style="flex: 1; padding-bottom: 6px;">
+              <div style="font-size: 12.5px; color: #667085;">${escapeHtml(doc.tanggalRegistrasi)}</div>
+              <div style="font-size: 14px; font-weight: 600; color: #101828; margin: 3px 0 2px 0;">Naskah Diteruskan ke PIC Internal</div>
+              <div style="font-size: 13px; color: #475467;">Penerima: ${escapeHtml(doc.tujuanPic || '1250016 - Robby Setiabudi')}</div>
+              <div style="border-bottom: 1px dashed #EAECF0; margin-top: 14px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="btn" onclick="closeModal()" style="padding: 9px 20px; font-size: 13.5px; font-weight: 600; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Modal Filter Surat Masuk Eksternal
+function toggleSmeFilterModal() {
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) return;
+
+  const currentSifat = appState.smeFilterSifat || 'all';
+  const currentKecepatan = appState.smeFilterKecepatan || 'all';
+
+  modalContainer.innerHTML = `
+    <div class="modal-overlay" onclick="handleModalOverlayClick(event)">
+      <div class="modal-card" style="max-width: 440px; width: 100%; padding: 24px 28px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid #EAECF0; padding-bottom: 12px;">
+          <h3 style="font-size: 17px; font-weight: 700; color: #101828; margin: 0;">Filter Surat Masuk Eksternal</h3>
+          <button type="button" onclick="closeModal()" style="background: none; border: none; font-size: 20px; color: #98A2B3; cursor: pointer;">&times;</button>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Sifat Surat</label>
+          <select id="sme-modal-filter-sifat" style="width: 100%; height: 38px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 0 12px; font-size: 13.5px; background: #fff; color: #101828;">
+            <option value="all" ${currentSifat === 'all' ? 'selected' : ''}>Semua Sifat</option>
+            <option value="Terbatas" ${currentSifat === 'Terbatas' ? 'selected' : ''}>Terbatas</option>
+            <option value="Rahasia" ${currentSifat === 'Rahasia' ? 'selected' : ''}>Rahasia</option>
+            <option value="Sangat Rahasia" ${currentSifat === 'Sangat Rahasia' ? 'selected' : ''}>Sangat Rahasia</option>
+            <option value="Biasa" ${currentSifat === 'Biasa' ? 'selected' : ''}>Biasa</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <label style="font-size: 13px; font-weight: 600; color: #344054; margin-bottom: 6px; display: block;">Kecepatan Tanggapan</label>
+          <select id="sme-modal-filter-kecepatan" style="width: 100%; height: 38px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 0 12px; font-size: 13.5px; background: #fff; color: #101828;">
+            <option value="all" ${currentKecepatan === 'all' ? 'selected' : ''}>Semua Kecepatan</option>
+            <option value="Sangat Segera" ${currentKecepatan === 'Sangat Segera' ? 'selected' : ''}>Sangat Segera</option>
+            <option value="Segera" ${currentKecepatan === 'Segera' ? 'selected' : ''}>Segera</option>
+            <option value="Biasa" ${currentKecepatan === 'Biasa' ? 'selected' : ''}>Biasa</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" onclick="appState.smeFilterSifat='all'; appState.smeFilterKecepatan='all'; closeModal(); renderApp();" style="padding: 8px 16px; font-size: 13px; font-weight: 600; background: #fff; border: 1px solid #D0D5DD; border-radius: 8px; color: #344054; cursor: pointer;">
+            Reset
+          </button>
+          <button type="button" onclick="appState.smeFilterSifat=document.getElementById('sme-modal-filter-sifat').value; appState.smeFilterKecepatan=document.getElementById('sme-modal-filter-kecepatan').value; closeModal(); renderApp();" style="padding: 8px 20px; font-size: 13px; font-weight: 600; background: #00AD78; border: none; border-radius: 8px; color: #fff; cursor: pointer;">
+            Terapkan Filter
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Aliases for compatibility
+const renderRegistrasiSuratMasukView = renderSuratMasukEksternalListView;
+const renderDaftarSuratMasukView = renderSuratMasukEksternalListView;
+const renderSuratMasukAdminPenerimaView = renderSuratMasukEksternalListView;
+const renderFormRegistrasiSuratMasukView = renderRegistrasiSuratMasukEksternalFormView;
+function openFormRegistrasiSuratMasuk() { navigate('registrasi-surat-masuk'); }
+function submitRegistrasiSuratMasuk() { submitRegistrasiSuratMasukEksternal(); }
 
 // Modal Pemilihan PIC Internal untuk Tujuan atau CC
 function openPilihPicInternalModal(targetField) {
