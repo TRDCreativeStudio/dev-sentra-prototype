@@ -2045,8 +2045,8 @@ function getBerandaTableRowsHtml() {
                       onmouseout="this.style.borderColor='#D0D5DD'; this.style.color='#475467'">
                 <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </button>
-              ${doc.hasAlert ? `
-                <span style="position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; background: #12B76A; color: #FFFFFF; border-radius: 50%; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.15);" title="Perlu perhatian segera">!</span>
+              ${isDocumentActionableForCurrentUser(doc, appState.currentRole) ? `
+                <span style="position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; background: #12B76A; color: #FFFFFF; border-radius: 50%; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.15);" title="${escapeHtml(getActionableTooltipDescription(doc, appState.currentRole))}">!</span>
               ` : ''}
             </div>
           </div>
@@ -2618,6 +2618,125 @@ function openLogActivityModal(docId) {
   `;
 }
 
+// ========================================================
+// ACTIONABLE TASK CHECKER (Indikator Circle Hijau '!')
+// Menentukan apakah naskah dinas membutuhkan tindakan aktif
+// dari user terkait sesuai role saat ini (Drafter, Reviewer, Approver, etc)
+// Goals: User lebih aware terkait dokumen apa yang butuh tindakannya
+// ========================================================
+function isDocumentActionableForCurrentUser(doc, roleId) {
+  if (!doc) return false;
+  const role = roleId || appState.currentRole || 'drafter';
+  const status = (doc.statusSuratKeluar || doc.status || '').toLowerCase().trim();
+
+  // Completed / Disetujui / Selesai tidak memerlukan tindakan lanjutan
+  if (
+    status === 'completed' || 
+    status.includes('selesai') || 
+    status.includes('disetujui / selesai')
+  ) {
+    return false;
+  }
+
+  // 1. Admin DOF / Super Admin: memantau semua task yang sedang berjalan
+  if (role === 'admin_dof' || role === 'all') {
+    return (
+      status.includes('review') ||
+      status.includes('approval') ||
+      status.includes('stamp') ||
+      status.includes('stempel') ||
+      status === 'draft' ||
+      status.startsWith('draft') ||
+      status.includes('declined') ||
+      status.includes('ditolak')
+    );
+  }
+
+  // 2. Drafter (Muhammad Ridha Fadli)
+  // Perlu tindakan HANYA jika:
+  // - Naskah masih 'Draft' (perlu diselesaikan & diajukan)
+  // - Naskah 'Declined' / 'Ditolak' (perlu diperbaiki / direvisi)
+  // TIDAK perlu tindakan jika sedang di-review, approval, atau stempel
+  if (role === 'drafter') {
+    return (
+      status === 'draft' || 
+      status.startsWith('draft') || 
+      status.includes('declined') || 
+      status.includes('ditolak') ||
+      status.includes('revisi')
+    );
+  }
+
+  // 3. Reviewer (Siti Rahma)
+  // Perlu tindakan HANYA jika naskah menunggu telaah Reviewer
+  if (role === 'reviewer') {
+    return status.includes('review');
+  }
+
+  // 4. Approver (Yetty Endarwati / Agung Mahendra)
+  // Perlu tindakan HANYA jika naskah menunggu persetujuan Pejabat Approver
+  if (role === 'approver') {
+    return status.includes('approval');
+  }
+
+  // 5. Admin Stempel (Farah Nabila / Dewi Lestari)
+  // Perlu tindakan HANYA jika naskah menunggu verifikasi & pembubuhan stempel
+  if (role === 'admin_stempel') {
+    return status.includes('stamp') || status.includes('stempel');
+  }
+
+  // 6. Recipient / Penerima Surat (Dewi Lestari)
+  // Perlu tindakan pada surat masuk yang status tindak lanjutnya masih 'Open'
+  if (role === 'recipient') {
+    return doc.statusTindakLanjut === 'Open' || doc.perluTindakLanjut === true;
+  }
+
+  // 7. Admin Penerima Dokumen (Agus Setiawan)
+  // Perlu tindakan pada naskah masuk eksternal yang belum terdistribusi
+  if (role === 'admin_penerima') {
+    return (
+      doc.status === 'Belum Terdistribusi' || 
+      doc.status === 'Menunggu Distribusi' ||
+      (doc.hasAlert && doc.status !== 'Terkirim ke PIC Internal')
+    );
+  }
+
+  // Fallback assignee match
+  if (doc.currentAssigneeRole && doc.currentAssigneeRole === role) {
+    return true;
+  }
+
+  return false;
+}
+
+function getActionableTooltipDescription(doc, roleId) {
+  const role = roleId || appState.currentRole || 'drafter';
+  const status = (doc?.statusSuratKeluar || doc?.status || '').toLowerCase().trim();
+
+  if (role === 'drafter') {
+    if (status.includes('declined') || status.includes('ditolak')) {
+      return 'Perlu tindakan dari Anda: Naskah ditolak oleh Reviewer/Approver, mohon revisi konsep surat';
+    }
+    return 'Perlu tindakan dari Anda: Konsep draf naskah belum disubmit';
+  }
+  if (role === 'reviewer') {
+    return 'Perlu tindakan dari Anda: Naskah menunggu telaah & persetujuan Reviewer';
+  }
+  if (role === 'approver') {
+    return 'Perlu tindakan dari Anda: Naskah dinas menunggu persetujuan & verifikasi OTP Approver';
+  }
+  if (role === 'admin_stempel') {
+    return 'Perlu tindakan dari Anda: Naskah menunggu verifikasi stempel & pembubuhan e-Seal Peruri';
+  }
+  if (role === 'recipient') {
+    return 'Perlu tindakan dari Anda: Naskah masuk memerlukan tindak lanjut';
+  }
+  if (role === 'admin_penerima') {
+    return 'Perlu tindakan dari Anda: Naskah masuk eksternal perlu didistribusikan ke PIC Internal';
+  }
+  return 'Perlu tindakan dari Anda';
+}
+
 // 2. Surat Masuk View (Exact match with Reference Screenshot + Personalized by User)
 function renderSuratMasukView() {
   const persona = getCurrentPersona();
@@ -2785,39 +2904,39 @@ function renderSuratMasukView() {
                       </div>
                     </td>
 
-                    <!-- No Surat Column with green exclamation alert badge -->
+                    <!-- No Surat Column with green exclamation alert badge (Only for actionable tasks) -->
                     <td>
                       <div class="no-surat-cell-wrapper">
-                        ${doc.hasAlert ? '<div class="alert-circle-green">!</div>' : ''}
+                        ${isDocumentActionableForCurrentUser(doc, appState.currentRole) ? `<div class="alert-circle-green" title="${escapeHtml(getActionableTooltipDescription(doc, appState.currentRole))}">!</div>` : ''}
                         <span style="font-weight: 500; color: #26323F;">${doc.nomorSurat}</span>
                       </div>
                     </td>
 
                     <!-- Judul -->
-                    <td style="font-weight: 500; color: #26323F;">${doc.judul}</td>
+                    <td style="font-weight: 500; color: #26323F;">${escapeHtml(doc.judul || '-')}</td>
 
                     <!-- Pengirim -->
-                    <td style="color: #26323F; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${doc.pengirim}">
-                      ${doc.pengirim}
+                    <td style="color: #26323F; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(doc.pengirim || '-')}">
+                      ${escapeHtml(doc.pengirim || '-')}
                     </td>
 
                     <!-- Unit Kerja -->
-                    <td style="color: #26323F;">${doc.unitKerja}</td>
+                    <td style="color: #26323F;">${escapeHtml(doc.unitKerja || '-')}</td>
 
                     <!-- Tanggal Tercipta -->
-                    <td style="color: #26323F;">${doc.tanggalTercipta}</td>
+                    <td style="color: #26323F;">${escapeHtml(doc.tanggalTercipta || doc.diperbaharuiTanggal || doc.waktu || '27/04/2026')}</td>
 
                     <!-- Prioritas Pill -->
                     <td>
-                      <span class="${prioritasClass}">${doc.prioritas}</span>
+                      <span class="${prioritasClass}">${escapeHtml(doc.prioritas || 'Biasa')}</span>
                     </td>
 
                     <!-- Sifat -->
-                    <td style="color: #26323F;">${doc.sifat}</td>
+                    <td style="color: #26323F;">${escapeHtml(doc.sifat || 'Biasa')}</td>
 
                     <!-- Keterangan -->
-                    <td style="color: #26323F; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${doc.keterangan}">
-                      ${doc.keterangan}
+                    <td style="color: #26323F; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(doc.keterangan || '-')}">
+                      ${escapeHtml(doc.keterangan || '-')}
                     </td>
 
                     <!-- Status Tindak Lanjut -->
@@ -2873,6 +2992,171 @@ function renderSuratMasukView() {
 
 // Alias for backwards compatibility
 const renderPesanMasukView = renderSuratMasukView;
+
+// ========================================================
+// STATUS BADGE TOOLTIP HELPER
+// Menampilkan info user reviewer/approver/stempel secara dinamis
+// Sesuai brief: draft & completed tidak dimunculkan tooltip
+// ========================================================
+function getStatusTooltipInfo(doc, status) {
+  if (!doc) return null;
+  const s = (status || doc.statusSuratKeluar || doc.status || '').toLowerCase().trim();
+
+  // "draft dan completed tidak perlu dimunculkan."
+  if (
+    s === 'draft' || 
+    s.startsWith('draft') || 
+    s === 'completed' || 
+    s.includes('selesai') || 
+    s.includes('disetujui / selesai')
+  ) {
+    return null;
+  }
+
+  // 1. Waiting for Review / Waiting for Review (1/2)
+  if (s.includes('review')) {
+    const name = doc.reviewer?.name || (doc.currentAssigneeRole === 'reviewer' ? doc.currentAssigneeName : null) || 'Siti Rahma';
+    const role = doc.reviewer?.title || 'Senior Officer (Reviewer)';
+    return {
+      type: 'review',
+      label: 'Sedang Direview Oleh',
+      name: name,
+      role: role
+    };
+  }
+
+  // 2. Waiting for Approval / Menunggu Approval
+  if (s.includes('approval')) {
+    const name = doc.approver?.name || doc.approverName || (doc.currentAssigneeRole === 'approver' ? doc.currentAssigneeName : null) || 'Yetty Endarwati';
+    const role = doc.approver?.title || 'Approver (Pejabat Berwenang)';
+    return {
+      type: 'approval',
+      label: 'Sedang Menunggu Persetujuan',
+      name: name,
+      role: role
+    };
+  }
+
+  // 3. Waiting for Stamp / Menunggu Verifikasi Stempel
+  if (s.includes('stamp') || s.includes('stempel')) {
+    const name = doc.stempelDetail?.verifikator || (doc.currentAssigneeRole === 'admin_stempel' ? doc.currentAssigneeName : null) || 'Farah Nabila / Dewi Lestari';
+    return {
+      type: 'stamp',
+      label: 'Menunggu Verifikasi Stempel',
+      name: name,
+      role: 'Admin Stempel Kedinasan'
+    };
+  }
+
+  // 4. Signing by Peruri CA / Menunggu TTD Digital
+  if (s.includes('signing') || s.includes('ttd digital')) {
+    return {
+      type: 'peruri',
+      label: 'Sistem Integrasi',
+      name: 'Peruri CA Digital Signature',
+      role: 'Sedang Proses Penerbitan Sertifikat TTD'
+    };
+  }
+
+  // 5. Sealing by Peruri CA / Proses Stempel
+  if (s.includes('sealing')) {
+    return {
+      type: 'peruri',
+      label: 'Sistem Integrasi',
+      name: 'Peruri e-Seal Engine',
+      role: 'Sedang Proses Pembubuhan Segel Elektronik'
+    };
+  }
+
+  // 6. Declined
+  if (s.includes('declined') || s.includes('ditolak')) {
+    const decliner = doc.timeline?.find(t => t.aksi?.toLowerCase().includes('decline') || t.aksi?.toLowerCase().includes('tolak'))?.aktor || 'Reviewer (Siti Rahma)';
+    return {
+      type: 'declined',
+      label: 'Ditolak / Dikembalikan Oleh',
+      name: decliner,
+      role: 'Perlu Perbaikan / Revisi Konsep'
+    };
+  }
+
+  return null;
+}
+
+let statusTooltipScrollListenerBound = false;
+
+function showStatusTooltip(el, docId) {
+  if (!el || !docId) return;
+  const doc = (appState.data && appState.data.documents && appState.data.documents.find(d => d.id === docId));
+  if (!doc) return;
+  const status = doc.statusSuratKeluar || doc.status || 'Draft';
+  const info = getStatusTooltipInfo(doc, status);
+  if (!info) return;
+
+  let tooltipEl = document.getElementById('global-status-tooltip');
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'global-status-tooltip';
+    tooltipEl.className = 'global-status-tooltip-popup';
+    document.body.appendChild(tooltipEl);
+  }
+
+  if (!statusTooltipScrollListenerBound) {
+    window.addEventListener('scroll', hideStatusTooltip, true);
+    statusTooltipScrollListenerBound = true;
+  }
+
+  tooltipEl.innerHTML = `
+    <div class="status-tooltip-header">
+      <span class="status-tooltip-dot ${info.type}"></span>
+      <span>${escapeHtml(info.label)}</span>
+    </div>
+    <div class="status-tooltip-user">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span>${escapeHtml(info.name)}</span>
+    </div>
+    ${info.role ? `<div class="status-tooltip-role">${escapeHtml(info.role)}</div>` : ''}
+  `;
+
+  tooltipEl.style.display = 'block';
+  tooltipEl.style.visibility = 'hidden';
+
+  const rect = el.getBoundingClientRect();
+  const tooltipWidth = tooltipEl.offsetWidth;
+  const tooltipHeight = tooltipEl.offsetHeight;
+
+  // Position above the badge, centered horizontally
+  let top = rect.top - tooltipHeight - 8;
+  let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+
+  // If too close to top of viewport, flip to bottom
+  if (top < 10) {
+    top = rect.bottom + 8;
+    tooltipEl.classList.add('tooltip-flipped');
+  } else {
+    tooltipEl.classList.remove('tooltip-flipped');
+  }
+
+  // Ensure it doesn't go off the screen left/right
+  if (left < 10) left = 10;
+  if (left + tooltipWidth > window.innerWidth - 10) {
+    left = window.innerWidth - tooltipWidth - 10;
+  }
+
+  tooltipEl.style.top = `${top + window.scrollY}px`;
+  tooltipEl.style.left = `${left + window.scrollX}px`;
+  tooltipEl.style.visibility = 'visible';
+  tooltipEl.style.opacity = '1';
+}
+
+function hideStatusTooltip() {
+  const tooltipEl = document.getElementById('global-status-tooltip');
+  if (tooltipEl) {
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.display = 'none';
+  }
+}
 
 // 3. Surat Keluar View (Exact Match with Reference media_1792432357924_56021ee6.png & media_1792432366990_8248c525.png)
 function renderSuratKeluarView() {
@@ -3073,8 +3357,8 @@ function renderSuratKeluarView() {
                   </td>
                   <td style="padding: 12px 14px; font-weight: 500; color: #1E293B;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      ${doc.hasAlert ? `
-                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background-color: #00AD78; color: #FFFFFF; font-size: 11px; font-weight: 700; flex-shrink: 0;" title="Pemberitahuan aktif">!</span>
+                      ${isDocumentActionableForCurrentUser(doc, appState.currentRole) ? `
+                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background-color: #00AD78; color: #FFFFFF; font-size: 11px; font-weight: 700; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0, 173, 120, 0.3);" title="${escapeHtml(getActionableTooltipDescription(doc, appState.currentRole))}">!</span>
                       ` : ''}
                       <span style="font-family: monospace; font-size: 12.5px;">${escapeHtml(doc.nomorSurat || '-')}</span>
                     </div>
@@ -3096,13 +3380,28 @@ function renderSuratKeluarView() {
                     ${escapeHtml(doc.unitKerja || '-')}
                   </td>
                   <td style="padding: 12px 14px; color: #64748B;">
-                    ${escapeHtml(doc.tanggalTercipta || '-')}
+                    ${escapeHtml(doc.tanggalTercipta || (doc.diperbaharuiTanggal ? doc.diperbaharuiTanggal.split(' ')[0] : '27/04/2026'))}
                   </td>
                   <td style="padding: 12px 14px;">
                     ${sifatBadge}
                   </td>
                   <td style="padding: 12px 14px;">
-                    <span class="${statusBadgeClass}">${escapeHtml(status)}</span>
+                    ${(() => {
+                      const tooltipInfo = getStatusTooltipInfo(doc, status);
+                      if (tooltipInfo) {
+                        return `
+                          <div 
+                            class="status-tooltip-trigger" 
+                            onmouseenter="showStatusTooltip(this, '${doc.id}')" 
+                            onmouseleave="hideStatusTooltip()"
+                            title="${escapeHtml(tooltipInfo.label)}: ${escapeHtml(tooltipInfo.name)}${tooltipInfo.role ? ' (' + escapeHtml(tooltipInfo.role) + ')' : ''}"
+                          >
+                            <span class="${statusBadgeClass}">${escapeHtml(status)}</span>
+                          </div>
+                        `;
+                      }
+                      return `<span class="${statusBadgeClass}">${escapeHtml(status)}</span>`;
+                    })()}
                   </td>
                   <td style="padding: 12px 14px; color: #334155; font-weight: 500;">
                     ${escapeHtml(doc.roleSuratKeluar || 'Drafter')}
@@ -3125,7 +3424,7 @@ function renderSuratKeluarView() {
         <!-- Dense Toggle Switch -->
         <div style="display: flex; align-items: center; gap: 10px;">
           <label style="position: relative; display: inline-block; width: 38px; height: 20px; cursor: pointer; margin: 0;">
-            <input type="checkbox" ${isDense ? 'checked' : ''} onchange="toggleSuratKeluarDense(this.checked)" style="opacity: 0; width: 0; height: 0; position: absolute;">
+            <input type="checkbox" id="surat-keluar-dense-toggle" aria-label="Toggle Dense Mode" ${isDense ? 'checked' : ''} onchange="toggleSuratKeluarDense(this.checked)" style="opacity: 0; width: 0; height: 0; position: absolute;">
             <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isDense ? '#00AD78' : '#CBD5E1'}; transition: .25s ease; border-radius: 20px;">
               <span style="position: absolute; content: ''; height: 16px; width: 16px; left: ${isDense ? '20px' : '2px'}; bottom: 2px; background-color: white; transition: .25s ease; border-radius: 50%;"></span>
             </span>
@@ -3239,7 +3538,14 @@ function renderBuatSuratBaruView() {
   }
 
   // Determine role & actionability for review/approval
-  const isReviewerActionable = !isCreatingNew && (appState.currentRole === 'reviewer' || appState.currentRole === 'users' || appState.currentRole === 'all') && (
+  const isDraft = !isCreatingNew && doc && (
+    doc.status === 'Draft' || 
+    doc.statusSuratKeluar === 'Draft' || 
+    doc.status === 'Draft Belum Diajukan'
+  );
+  const isDraftEditable = isCreatingNew || Boolean(isDraft);
+
+  const isReviewerActionable = !isCreatingNew && !isDraft && (appState.currentRole === 'reviewer' || appState.currentRole === 'users' || appState.currentRole === 'all') && (
     (doc?.statusSuratKeluar && (doc.statusSuratKeluar.includes('Review') || doc.statusSuratKeluar.includes('Waiting for Review'))) ||
     doc?.status === 'Menunggu Review' || (doc?.status && doc.status.includes('Review'))
   );
@@ -3275,6 +3581,20 @@ function renderBuatSuratBaruView() {
       statusBadgeHtml = `<span class="badge-sk-declined" style="font-size: 12px; padding: 3px 12px;">Declined</span>`;
     } else {
       statusBadgeHtml = `<span class="badge-sk-draft" style="font-size: 12px; padding: 3px 12px;">${escapeHtml(status)}</span>`;
+    }
+
+    const tooltipInfo = getStatusTooltipInfo(doc, status);
+    if (tooltipInfo) {
+      statusBadgeHtml = `
+        <div 
+          class="status-tooltip-trigger" 
+          onmouseenter="showStatusTooltip(this, '${doc.id}')" 
+          onmouseleave="hideStatusTooltip()"
+          title="${escapeHtml(tooltipInfo.label)}: ${escapeHtml(tooltipInfo.name)}${tooltipInfo.role ? ' (' + escapeHtml(tooltipInfo.role) + ')' : ''}"
+        >
+          ${statusBadgeHtml}
+        </div>
+      `;
     }
   }
 
@@ -3328,8 +3648,10 @@ function renderBuatSuratBaruView() {
     ? `Hari ini, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` 
     : (doc?.diperbaharuiTanggal || doc?.tanggalTercipta || 'Selasa, 27 April 2026, 11:41');
 
-  // Paper sheet data
-  const paperNomor = isCreatingNew ? '[Akan diterbitkan otomatis setelah disetujui]' : (doc?.nomorSurat || '07344/A/TI/P14/ET/2026');
+  // Paper sheet data (Draft belum bernomor akan diterbitkan otomatis saat disubmit)
+  const paperNomor = (isCreatingNew || (doc?.nomorSurat && doc.nomorSurat.includes('Draft')))
+    ? '[Akan diterbitkan otomatis saat disubmit]' 
+    : (doc?.nomorSurat || '07344/A/TI/P14/ET/2026');
   const paperSifat = sifatVal;
   const paperJudul = isCreatingNew ? (judulVal || 'Draft Naskah Dinas Baru') : (doc?.judul || 'Rebuild Digital Office');
   const paperDate = isCreatingNew 
@@ -3905,7 +4227,7 @@ function renderBuatSuratBaruView() {
       <div class="tipe-surat-pagination-footer" style="padding: 12px 20px; border-top: 1px solid #E2E8F0; background: #FFFFFF;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <label style="position: relative; display: inline-block; width: 38px; height: 20px; cursor: pointer; margin: 0;">
-            <input type="checkbox" ${isLampiranDense ? 'checked' : ''} onchange="toggleCreateSuratLampiranDense(this.checked)" style="opacity: 0; width: 0; height: 0; position: absolute;">
+            <input type="checkbox" id="lampiran-dense-toggle" aria-label="Toggle Dense Mode" ${isLampiranDense ? 'checked' : ''} onchange="toggleCreateSuratLampiranDense(this.checked)" style="opacity: 0; width: 0; height: 0; position: absolute;">
             <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isLampiranDense ? '#00AD78' : '#CBD5E1'}; transition: .25s ease; border-radius: 20px;">
               <span style="position: absolute; content: ''; height: 16px; width: 16px; left: ${isLampiranDense ? '20px' : '2px'}; bottom: 2px; background-color: white; transition: .25s ease; border-radius: 50%;"></span>
             </span>
@@ -3936,20 +4258,20 @@ function renderBuatSuratBaruView() {
 
     </div> <!-- End create-surat-scroll-content -->
 
-    <!-- Fixed Bottom Bar: strictly differentiated between Buat Surat Baru vs Detail Review/Approval -->
+    <!-- Fixed Bottom Bar: strictly differentiated between Buat Surat Baru / Draft vs Detail Review/Approval -->
     <div class="create-surat-fixed-bottom-bar" style="${(isReviewerActionable || isApproverActionable) ? 'justify-content: flex-end; gap: 12px;' : ''}">
-      ${isCreatingNew ? `
-        <!-- Drafter Creation Action Buttons (Always Clean Draft Mode in buat-surat-baru) -->
+      ${isDraftEditable ? `
+        <!-- Drafter Creation & Draft Editing Action Buttons -->
         <div>
           <button type="button" class="btn" onclick="navigate('surat-keluar')" style="padding: 10px 20px; font-weight: 600; color: #344054; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; cursor: pointer;">
             Cancel
           </button>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
-          <button type="button" class="btn" onclick="saveDraftSurat()" style="padding: 10px 20px; font-weight: 600; color: #344054; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; cursor: pointer;">
+          <button type="button" class="btn" onclick="saveDraftSurat('${doc ? doc.id : ''}')" style="padding: 10px 20px; font-weight: 600; color: #344054; background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; cursor: pointer;">
             Save as Draft
           </button>
-          <button type="button" class="btn btn-primary" onclick="submitCreateSurat()" style="padding: 10px 24px; font-weight: 600; background: #00AD78; border-color: #00AD78; border-radius: 8px; color: #FFFFFF; cursor: pointer;">
+          <button type="button" class="btn btn-primary" onclick="submitCreateSurat('${doc ? doc.id : ''}')" style="padding: 10px 24px; font-weight: 600; background: #00AD78; border-color: #00AD78; border-radius: 8px; color: #FFFFFF; cursor: pointer;">
             Submit
           </button>
         </div>
@@ -4069,7 +4391,7 @@ function toggleCreateSuratLampiranDense(val) {
   }
 }
 
-async function saveDraftSurat() {
+async function saveDraftSurat(existingDocId) {
   const judulEl = document.getElementById('create-surat-judul');
   const jenisEl = document.getElementById('create-surat-jenis');
   const templatEl = document.getElementById('create-surat-templat');
@@ -4116,7 +4438,8 @@ async function saveDraftSurat() {
   const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
   const nowStr = `${dateFormatted} ${timeFormatted}`;
 
-  const docId = 'doc-' + Date.now().toString().slice(-5);
+  const targetDocId = (typeof existingDocId === 'string' && existingDocId) ? existingDocId : ((appState.currentPage === 'detail-surat-keluar' && appState.selectedDocId) ? appState.selectedDocId : null);
+  const docId = targetDocId || ('doc-' + Date.now().toString().slice(-5));
 
   const draftDoc = {
     id: docId,
@@ -4197,7 +4520,17 @@ async function saveDraftSurat() {
   };
 
   if (!appState.data.documents) appState.data.documents = [];
-  appState.data.documents.unshift(draftDoc);
+  if (targetDocId) {
+    const existingIdx = appState.data.documents.findIndex(d => d.id === targetDocId);
+    if (existingIdx !== -1) {
+      draftDoc.nomorSurat = appState.data.documents[existingIdx].nomorSurat || '[Draft Belum Bernomor]';
+      appState.data.documents[existingIdx] = { ...appState.data.documents[existingIdx], ...draftDoc };
+    } else {
+      appState.data.documents.unshift(draftDoc);
+    }
+  } else {
+    appState.data.documents.unshift(draftDoc);
+  }
   appState.isDataKosongMode = false;
   appState.selectedDocId = draftDoc.id;
   saveLocalCopy(appState.data);
@@ -4218,7 +4551,7 @@ async function saveDraftSurat() {
   }, 700);
 }
 
-async function submitCreateSurat() {
+async function submitCreateSurat(existingDocId) {
   const judulEl = document.getElementById('create-surat-judul');
   const jenisEl = document.getElementById('create-surat-jenis');
   const templatEl = document.getElementById('create-surat-templat');
@@ -4265,13 +4598,42 @@ async function submitCreateSurat() {
   const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
   const nowStr = `${dateFormatted} ${timeFormatted}`;
 
-  const docId = 'doc-' + Date.now().toString().slice(-5);
-  const newNomor = `07344/A/TI/P14/ET/${now.getFullYear()}`;
+  const targetDocId = (typeof existingDocId === 'string' && existingDocId) ? existingDocId : ((appState.currentPage === 'detail-surat-keluar' && appState.selectedDocId) ? appState.selectedDocId : null);
+  const docId = targetDocId || ('doc-' + Date.now().toString().slice(-5));
+
+  // Otomatis terbitkan nomor surat resmi saat disubmit (Opsi B)
+  // Tidak akan pernah ada surat terkirim ke Reviewer dengan label "[Draft Belum Bernomor]"
+  const allDocs = (appState.data && appState.data.documents) || [];
+  const year = now.getFullYear();
+  let maxSeq = 7344;
+  allDocs.forEach(d => {
+    if (d.nomorSurat && !d.nomorSurat.includes('Draft')) {
+      const m = d.nomorSurat.match(/^0*(\d{4,5})\//);
+      if (m && parseInt(m[1]) > maxSeq) {
+        maxSeq = parseInt(m[1]);
+      }
+    }
+  });
+  const nextSeq = String(maxSeq + 1).padStart(5, '0');
+  const code = (klasifikasi && klasifikasi.includes('BL')) ? 'BL' : 'TI';
+  const generatedOfficialNomor = `${nextSeq}/A/${code}/P14/ET/${year}`;
+
+  // Cek apakah dokumen sebelumnya sudah memiliki nomor surat resmi
+  let officialNomor = generatedOfficialNomor;
+  if (targetDocId && appState.data.documents) {
+    const existingIdx = appState.data.documents.findIndex(d => d.id === targetDocId);
+    if (existingIdx !== -1) {
+      const curNo = appState.data.documents[existingIdx].nomorSurat;
+      if (curNo && !curNo.includes('Draft') && !curNo.includes('Belum Bernomor')) {
+        officialNomor = curNo;
+      }
+    }
+  }
 
   const newDoc = {
     id: docId,
-    hasAlert: true,
-    nomorSurat: newNomor,
+    hasAlert: false, // Bagi Drafter surat sudah terkirim, kini di ranah Reviewer
+    nomorSurat: officialNomor,
     judul: judul,
     pengirim: 'Yetty Endarwati - SVP Digitalisasi & Data Science',
     unitKerja: 'Komp. Digitalisasi & Data Science',
@@ -4348,7 +4710,17 @@ async function submitCreateSurat() {
   };
 
   if (!appState.data.documents) appState.data.documents = [];
-  appState.data.documents.unshift(newDoc);
+  if (targetDocId) {
+    const existingIdx = appState.data.documents.findIndex(d => d.id === targetDocId);
+    if (existingIdx !== -1) {
+      newDoc.nomorSurat = officialNomor;
+      appState.data.documents[existingIdx] = { ...appState.data.documents[existingIdx], ...newDoc };
+    } else {
+      appState.data.documents.unshift(newDoc);
+    }
+  } else {
+    appState.data.documents.unshift(newDoc);
+  }
   appState.isDataKosongMode = false;
   appState.selectedDocId = newDoc.id;
   saveLocalCopy(appState.data);
@@ -4363,7 +4735,7 @@ async function submitCreateSurat() {
     console.warn('Saved doc locally');
   }
 
-  showToast('Surat berhasil dibuat & diajukan ke Reviewer (Siti Rahma)!');
+  showToast(`Nomor surat ${officialNomor} resmi diterbitkan otomatis & diajukan ke Reviewer (Siti Rahma)!`);
   setTimeout(() => {
     navigate('surat-keluar');
   }, 700);
@@ -6917,8 +7289,8 @@ function renderSuratMasukEksternalListView() {
                   <!-- Tanggal Registrasi with Green ! Alert Indicator -->
                   <td>
                     <div style="display: inline-flex; align-items: center; gap: 8px;">
-                      ${doc.hasAlert ? `
-                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #00AD78; color: #FFFFFF; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0;" title="Perlu Perhatian Segera">!</span>
+                      ${isDocumentActionableForCurrentUser(doc, 'admin_penerima') ? `
+                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #00AD78; color: #FFFFFF; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0;" title="${escapeHtml(getActionableTooltipDescription(doc, 'admin_penerima'))}">!</span>
                       ` : ''}
                       <span>${escapeHtml(doc.tanggalRegistrasi || '-')}</span>
                     </div>
@@ -6967,6 +7339,7 @@ function renderSuratMasukEksternalListView() {
               <input 
                 type="checkbox" 
                 id="sme-dense-toggle" 
+                aria-label="Toggle Dense Mode"
                 ${isDense ? 'checked' : ''} 
                 onchange="appState.smeIsDense = this.checked; renderApp();" 
                 style="opacity: 0; width: 0; height: 0;"

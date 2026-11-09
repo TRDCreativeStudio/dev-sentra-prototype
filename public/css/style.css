@@ -5894,6 +5894,119 @@ body.sidebar-collapsed .create-surat-fixed-bottom-bar {
   background-color: #F8FAFC;
 }
 
+/* ========================================================
+   STATUS BADGE HOVER TOOLTIP (Figma Matching)
+   Menampilkan info user reviewer/approver/stempel secara dinamis
+   ======================================================== */
+.status-tooltip-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.status-tooltip-trigger:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.97);
+}
+
+.global-status-tooltip-popup {
+  position: absolute;
+  display: none;
+  background: #0F172A;
+  color: #FFFFFF;
+  padding: 9px 13px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+  z-index: 999999;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.global-status-tooltip-popup::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #0F172A transparent transparent transparent;
+}
+
+.global-status-tooltip-popup.tooltip-flipped::after {
+  top: auto;
+  bottom: 100%;
+  border-color: transparent transparent #0F172A transparent;
+}
+
+.status-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #94A3B8;
+  margin-bottom: 3px;
+}
+
+.status-tooltip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-tooltip-dot.review {
+  background: #F59E0B;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
+}
+
+.status-tooltip-dot.approval {
+  background: #38BDF8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+}
+
+.status-tooltip-dot.stamp {
+  background: #FB923C;
+  box-shadow: 0 0 8px rgba(251, 146, 60, 0.7);
+}
+
+.status-tooltip-dot.peruri {
+  background: #818CF8;
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.7);
+}
+
+.status-tooltip-dot.declined {
+  background: #F87171;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.7);
+}
+
+.status-tooltip-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.status-tooltip-role {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94A3B8;
+  margin-top: 2px;
+  padding-left: 19px;
+}
+
+
 
 
 

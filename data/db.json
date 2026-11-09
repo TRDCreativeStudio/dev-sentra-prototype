@@ -149,12 +149,212 @@
   ],
   "documents": [
     {
+      "id": "doc-56028",
+      "nomorSurat": "07344/A/TI/P14/ET/2026",
+      "judul": "Surat Kerjasama Riset Pupuk Hayati 2026",
+      "jenisSurat": "Surat Antar Unit Kerja",
+      "template": "Surat Eksternal",
+      "klasifikasi": "BL.01.04 (pilar Hukum dan Tata Kelola)",
+      "sifat": "Biasa",
+      "tanggalDibuat": "2026-11-09T05:17:36.028Z",
+      "tanggalUpdate": "2026-11-09T05:17:36.028Z",
+      "drafter": {
+        "id": "drafter",
+        "name": "Budi Santoso",
+        "unit": "Divisi Rantai Pasok"
+      },
+      "reviewer": {
+        "id": "reviewer",
+        "name": "Siti Rahma",
+        "title": "Senior Officer Rantai Pasok"
+      },
+      "approver": {
+        "id": "approver",
+        "name": "Yetty Endarwati",
+        "title": "SVP Digitalisasi & Data Science"
+      },
+      "penerima": {
+        "id": "ke-268871",
+        "name": "Dr. Ir. Suryadi, M.Sc.",
+        "unit": "Institut Pertanian Bogor",
+        "email": "suryadi@ipb.ac.id",
+        "telepon": "081234567890",
+        "isEksternal": true
+      },
+      "cc": [
+        "Tim Digitalisasi",
+        "Divisi Rantai Pasok"
+      ],
+      "perluTindakLanjut": true,
+      "tindakLanjutNote": "",
+      "tindakLanjutStatus": "Menunggu Proses Approval",
+      "perluStempel": true,
+      "stempelStatus": "Menunggu Verifikasi Stempel",
+      "stempelDetail": null,
+      "kecepatanTanggapan": "Biasa",
+      "status": "Menunggu Review",
+      "statusBadge": "warning",
+      "currentAssigneeRole": "reviewer",
+      "currentAssigneeName": "Siti Rahma",
+      "ringkasan": "Sehubungan dengan program akselerasi transformasi digital dan standardisasi tata kelola administrasi perkantoran terintegrasi di lingkungan Pupuk Indonesia Grup, bersama ini kami sampaikan rencana pelaksanaan implementasi arsitektur SENTRA Digital Office (DoF) versi pembaruan (Rebuild Digital Office).",
+      "lampiran": [
+        {
+          "name": "Surat Pengantar.pdf",
+          "size": "1.8 MB",
+          "tanggal": "09/11/2026, 12:17:36",
+          "oleh": "Yetty Endarwati"
+        }
+      ],
+      "timeline": [
+        {
+          "waktu": "09/11/26, 12.17 WIB",
+          "aktor": "Budi Santoso",
+          "peran": "Drafter",
+          "aksi": "Kirim untuk Review",
+          "catatan": "Diajukan ke Reviewer (Siti Rahma)."
+        }
+      ]
+    },
+    {
+      "id": "doc-72758",
+      "nomorSurat": "07344/A/TI/P14/ET/2026",
+      "judul": "Naskah Dinas Tanpa Judul",
+      "jenisSurat": "Surat Antar Unit Kerja",
+      "template": "Surat Internal",
+      "klasifikasi": "BL.01.04 (pilar Hukum dan Tata Kelola)",
+      "sifat": "Terbatas",
+      "tanggalDibuat": "2026-11-09T04:57:52.758Z",
+      "tanggalUpdate": "2026-11-09T04:57:52.758Z",
+      "drafter": {
+        "id": "drafter",
+        "name": "Budi Santoso",
+        "unit": "Divisi Rantai Pasok"
+      },
+      "reviewer": {
+        "id": "reviewer",
+        "name": "Siti Rahma",
+        "title": "Senior Officer Rantai Pasok"
+      },
+      "approver": {
+        "id": "approver",
+        "name": "Yetty Endarwati",
+        "title": "SVP Digitalisasi & Data Science"
+      },
+      "penerima": {
+        "id": "1250016",
+        "name": "Robby Setiabudi",
+        "unit": "Direktur Supply Chain",
+        "isGroup": false
+      },
+      "cc": [
+        "Tim Digitalisasi",
+        "Divisi Rantai Pasok"
+      ],
+      "perluTindakLanjut": true,
+      "tindakLanjutNote": "",
+      "tindakLanjutStatus": "Menunggu Proses Approval",
+      "perluStempel": false,
+      "stempelStatus": "Tidak Diperlukan",
+      "stempelDetail": null,
+      "kecepatanTanggapan": "Biasa",
+      "status": "Menunggu Review",
+      "statusBadge": "warning",
+      "currentAssigneeRole": "reviewer",
+      "currentAssigneeName": "Siti Rahma",
+      "ringkasan": "Sehubungan dengan program akselerasi transformasi digital dan standardisasi tata kelola administrasi perkantoran terintegrasi di lingkungan Pupuk Indonesia Grup, bersama ini kami sampaikan rencana pelaksanaan implementasi arsitektur SENTRA Digital Office (DoF) versi pembaruan (Rebuild Digital Office).",
+      "lampiran": [
+        {
+          "name": "Surat Pengantar.pdf",
+          "size": "1.8 MB",
+          "tanggal": "09/11/2026, 11:57:52",
+          "oleh": "Yetty Endarwati"
+        }
+      ],
+      "timeline": [
+        {
+          "waktu": "09/11/26, 11.57 WIB",
+          "aktor": "Budi Santoso",
+          "peran": "Drafter",
+          "aksi": "Kirim untuk Review",
+          "catatan": "Diajukan ke Reviewer (Siti Rahma)."
+        }
+      ]
+    },
+    {
+      "id": "doc-68901",
+      "nomorSurat": "[Draft Belum Bernomor]",
+      "judul": "Surat Kerjasama Riset Pupuk Hayati 2026",
+      "jenisSurat": "Surat Antar Unit Kerja",
+      "template": "Surat Eksternal",
+      "klasifikasi": "BL.01.04 (pilar Hukum dan Tata Kelola)",
+      "sifat": "Biasa",
+      "tanggalDibuat": "2026-11-09T04:57:48.901Z",
+      "tanggalUpdate": "2026-11-09T04:57:48.902Z",
+      "drafter": {
+        "id": "drafter",
+        "name": "Budi Santoso",
+        "unit": "Divisi Rantai Pasok"
+      },
+      "reviewer": {
+        "id": "reviewer",
+        "name": "Siti Rahma",
+        "title": "Senior Officer Rantai Pasok"
+      },
+      "approver": {
+        "id": "approver",
+        "name": "Yetty Endarwati",
+        "title": "SVP Digitalisasi & Data Science"
+      },
+      "penerima": {
+        "id": "ke-268871",
+        "name": "Dr. Ir. Suryadi, M.Sc.",
+        "unit": "Institut Pertanian Bogor",
+        "email": "suryadi@ipb.ac.id",
+        "telepon": "081234567890",
+        "isEksternal": true
+      },
+      "cc": [
+        "Tim Digitalisasi"
+      ],
+      "perluTindakLanjut": true,
+      "tindakLanjutNote": "",
+      "tindakLanjutStatus": "Menunggu Proses Approval",
+      "perluStempel": true,
+      "stempelStatus": "Menunggu Verifikasi Stempel",
+      "stempelDetail": null,
+      "kecepatanTanggapan": "Biasa",
+      "status": "Draft",
+      "statusSuratKeluar": "Draft",
+      "roleSuratKeluar": "Drafter",
+      "statusBadge": "secondary",
+      "currentAssigneeRole": "drafter",
+      "currentAssigneeName": "Muhammad Ridha Fadli",
+      "ringkasan": "Draft konsep naskah dinas baru.",
+      "lampiran": [
+        {
+          "name": "Surat Pengantar.pdf",
+          "size": "1.8 MB",
+          "tanggal": "09/11/2026, 11:57:48",
+          "oleh": "Muhammad Ridha Fadli"
+        }
+      ],
+      "timeline": [
+        {
+          "waktu": "09/11/26, 11.57 WIB",
+          "aktor": "Budi Santoso",
+          "peran": "Drafter",
+          "aksi": "Kirim untuk Review",
+          "catatan": "Diajukan ke Reviewer (Siti Rahma)."
+        }
+      ]
+    },
+    {
       "id": "doc-ext-01",
       "hasAlert": true,
       "nomorSurat": "00421/B/UM/P14/EXT/2026",
       "judul": "Surat Kemitraan Kerjasama Distribusi Logistik Pupuk (Eksternal)",
-      "status": "Menunggu Approval",
-      "statusSuratKeluar": "Waiting For Approval",
+      "status": "Disetujui / Selesai",
+      "statusSuratKeluar": "Completed",
       "role": "Approval",
       "roleSuratKeluar": "Approval",
       "diperbaharuiTanggal": "Selasa, 27 April 2026, 14:20",
@@ -170,8 +370,8 @@
       "isSuratEksternal": true,
       "perluStempel": true,
       "perluTindakLanjut": true,
-      "currentAssigneeRole": "approver",
-      "currentAssigneeName": "Yetty Endarwati (Approver)",
+      "currentAssigneeRole": "recipient",
+      "currentAssigneeName": "Budi Wicaksono",
       "drafter": {
         "id": "drafter",
         "name": "Muhammad Ridha Fadli",
@@ -221,15 +421,34 @@
           "peran": "Reviewer",
           "aksi": "Approve Telaah Surat Eksternal",
           "catatan": "Telaah naskah dinas eksternal disetujui, diteruskan ke Pejabat Approver (Yetty Endarwati) untuk verifikasi persetujuan OTP."
+        },
+        {
+          "waktu": "09/11/26, 12.00 WIB",
+          "aktor": "Farah Nabila",
+          "peran": "Admin Stempel",
+          "aksi": "Verifikasi Stempel Digital Berhasil",
+          "catatan": "Stempel kedinasan resmi dibubuhkan melalui Peruri Digital Security. SN: PERURI-STMP-2026-83268757. Kuota stempel terpakai terpotong 1."
         }
       ],
-      "statusBadge": "warning",
-      "stempelStatus": "Menunggu Verifikasi Stempel",
-      "tanggalUpdate": "2026-04-27T14:20:15.000Z",
-      "isStamped": false,
-      "stempelDetail": null,
-      "tindakLanjutStatus": "Menunggu Approval",
+      "statusBadge": "success",
+      "stempelStatus": "Terverifikasi",
+      "tanggalUpdate": "2026-11-09T05:00:42.679Z",
+      "isStamped": true,
+      "stempelDetail": {
+        "provider": "Peruri Digital Security",
+        "verifikator": "Farah Nabila",
+        "serialNumber": "PERURI-STMP-2026-83268757",
+        "waktuVerifikasi": "09/11/26, 12.00 WIB",
+        "statusVerifikasi": "Valid & Tersegel Resmi (CA-Certified)"
+      },
+      "tindakLanjutStatus": "Menunggu Laporan Tindak Lanjut dari Penerima",
       "logActivity": [
+        {
+          "waktu": "09/11/26, 12.00",
+          "status": "Completed",
+          "judul": "Stempel kedinasan resmi dibubuhkan melalui Peruri Digital Security CA",
+          "oleh": "Farah Nabila - Admin Stempel Biro Umum"
+        },
         {
           "waktu": "27 Apr 2026, 14.20",
           "status": "Waiting for Approval",
@@ -1565,8 +1784,8 @@
       },
       "kuotaStempel": {
         "total": 25000,
-        "terpakai": 9851,
-        "sisa": 15149,
+        "terpakai": 9852,
+        "sisa": 15148,
         "satuan": "stempel"
       },
       "jumlahPerusahaan": 5,
@@ -1958,6 +2177,14 @@
     }
   ],
   "kontakEksternal": [
+    {
+      "id": "ke-268871",
+      "nama": "Dr. Ir. Suryadi, M.Sc.",
+      "instansi": "Institut Pertanian Bogor",
+      "email": "suryadi@ipb.ac.id",
+      "nomorTelepon": "081234567890",
+      "tanggalDiperbaharui": "09/11/2026"
+    },
     {
       "id": "ke-01",
       "nama": "SDM PT ABC",
